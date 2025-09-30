@@ -10,7 +10,7 @@
 
 ```bash
 # Перейдите в корневую папку проекта
-cd /path/to/bugu-store
+cd /path/to/store-seller
 
 # Запустите скрипт установки зависимостей
 ./scripts/install_dependencies.sh

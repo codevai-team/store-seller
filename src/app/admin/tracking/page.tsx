@@ -14,10 +14,12 @@ import {
   CurrencyDollarIcon,
   MagnifyingGlassIcon,
   ChevronUpDownIcon,
+  ChevronDownIcon,
   BarsArrowUpIcon,
   ArrowUpIcon,
   ArrowDownIcon,
   ExclamationTriangleIcon,
+  CubeIcon,
 } from '@heroicons/react/24/outline';
 import AdminLayout from '@/components/admin/AdminLayout';
 
@@ -57,6 +59,7 @@ interface Order {
     timestamp: string;
     description: string;
     completed: boolean;
+    current: boolean;
   }[];
 }
 
@@ -64,6 +67,69 @@ type SortOption = 'newest' | 'orderNumber' | 'totalPrice' | 'customerName' | 'st
 type SortOrder = 'asc' | 'desc';
 
 export default function TrackingPage() {
+  // CSS анимации для процесса доставки
+  const deliveryAnimations = `
+    @keyframes slideInFromLeft {
+      from {
+        opacity: 0;
+        transform: translateX(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+    
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    @keyframes glow {
+      0%, 100% {
+        box-shadow: 0 0 5px rgba(147, 51, 234, 0.3);
+      }
+      50% {
+        box-shadow: 0 0 20px rgba(147, 51, 234, 0.6), 0 0 30px rgba(147, 51, 234, 0.4);
+      }
+    }
+    
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+      }
+      40% {
+        transform: translateY(-3px);
+      }
+      60% {
+        transform: translateY(-2px);
+      }
+    }
+    
+    .delivery-step {
+      animation: slideInFromLeft 0.5s ease-out;
+    }
+    
+    .delivery-step:nth-child(1) { animation-delay: 0.1s; }
+    .delivery-step:nth-child(2) { animation-delay: 0.2s; }
+    .delivery-step:nth-child(3) { animation-delay: 0.3s; }
+    .delivery-step:nth-child(4) { animation-delay: 0.4s; }
+    .delivery-step:nth-child(5) { animation-delay: 0.5s; }
+    
+    .current-step {
+      animation: glow 2s ease-in-out infinite, bounce 2s ease-in-out infinite;
+    }
+    
+    .completed-step {
+      animation: fadeInUp 0.3s ease-out;
+    }
+  `;
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -76,6 +142,9 @@ export default function TrackingPage() {
   const [timeToFilter, setTimeToFilter] = useState<string>('23:59');
   const [showDateTimeFrom, setShowDateTimeFrom] = useState(false);
   const [showDateTimeTo, setShowDateTimeTo] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [expandedDelivery, setExpandedDelivery] = useState(false);
 
   // Refs для инпутов даты и времени
   const dateFromInputRef = useRef<HTMLInputElement>(null);
@@ -143,6 +212,7 @@ export default function TrackingPage() {
         const data = await response.json();
         
         // Добавляем мок данные для трекинга и нормализуем структуру данных
+        console.log('Orders with statuses:', data.orders.map((order: any) => ({ id: order.id, status: order.status })));
         const ordersWithTracking = data.orders.map((order: any) => {
           // Нормализуем структуру items - поддерживаем и orderItems, и items
           let normalizedItems = [];
@@ -153,14 +223,14 @@ export default function TrackingPage() {
             normalizedItems = order.orderItems.map((item: any) => ({
               id: item.id,
               quantity: item.amount || item.quantity || 1,
-              price: item.price,
+              price: Number(item.price) || 0,
               variant: {
                 id: item.id,
                 size: item.size || 'N/A',
                 color: item.color || 'N/A',
                 sku: item.sku || '',
-                price: item.price,
-                discountPrice: item.discountPrice,
+                price: Number(item.price) || 0,
+                discountPrice: item.discountPrice ? Number(item.discountPrice) : undefined,
                 mainImage: item.mainImage || null,
                 product: {
                   name: item.product?.name || 'Без названия',
@@ -172,8 +242,18 @@ export default function TrackingPage() {
             }));
           }
 
+          // Рассчитываем итоговую сумму из товаров, если totalPrice не задан или равен 0
+          let calculatedTotalPrice = Number(order.totalPrice) || 0;
+          if (calculatedTotalPrice === 0 && normalizedItems.length > 0) {
+            calculatedTotalPrice = normalizedItems.reduce((sum: number, item: any) => {
+              const itemPrice = (Number(item.price) || 0) * (Number(item.quantity) || 0);
+              return sum + itemPrice;
+            }, 0);
+          }
+
           return {
             ...order,
+            totalPrice: calculatedTotalPrice,
             items: normalizedItems,
             trackingSteps: generateTrackingSteps(order.status, order.createdAt)
           };
@@ -200,94 +280,167 @@ export default function TrackingPage() {
   };
 
   const generateTrackingSteps = (status: string, createdAt: string) => {
-    const baseSteps = [
+    const orderDate = new Date(createdAt);
+    const allSteps = [
       {
         status: 'CREATED',
         timestamp: createdAt,
         description: 'Заказ создан и принят в обработку',
-        completed: true
+        completed: status === 'CREATED' || status === 'COURIER_WAIT' || status === 'COURIER_PICKED' || status === 'ENROUTE' || status === 'DELIVERED',
+        current: status === 'CREATED'
+      },
+      {
+        status: 'COURIER_WAIT',
+        timestamp: new Date(orderDate.getTime() + 30 * 60000).toISOString(),
+        description: 'Ожидает курьера',
+        completed: status === 'COURIER_PICKED' || status === 'ENROUTE' || status === 'DELIVERED',
+        current: status === 'COURIER_WAIT'
+      },
+      {
+        status: 'COURIER_PICKED',
+        timestamp: new Date(orderDate.getTime() + 2 * 60 * 60000).toISOString(),
+        description: 'Курьер забрал заказ',
+        completed: status === 'ENROUTE' || status === 'DELIVERED',
+        current: status === 'COURIER_PICKED'
+      },
+      {
+        status: 'ENROUTE',
+        timestamp: new Date(orderDate.getTime() + 3 * 60 * 60000).toISOString(),
+        description: 'В пути к получателю',
+        completed: status === 'DELIVERED',
+        current: status === 'ENROUTE'
+      },
+      {
+        status: 'DELIVERED',
+        timestamp: new Date(orderDate.getTime() + 4 * 60 * 60000).toISOString(),
+        description: 'Заказ доставлен получателю',
+        completed: status === 'DELIVERED',
+        current: status === 'DELIVERED'
       }
     ];
 
-    const orderDate = new Date(createdAt);
-
-    if (status === 'PAID' || status === 'SHIPPED' || status === 'COMPLETED') {
-      baseSteps.push({
-        status: 'PAID',
-        timestamp: new Date(orderDate.getTime() + 30 * 60000).toISOString(),
-        description: 'Заказ оплачен',
-        completed: true
-      });
+    // Если заказ отменен, добавляем специальный шаг
+    if (status === 'CANCELED') {
+      return [
+        {
+          status: 'CREATED',
+          timestamp: createdAt,
+          description: 'Заказ создан и принят в обработку',
+          completed: true,
+          current: false
+        },
+        {
+          status: 'CANCELED',
+          timestamp: new Date(orderDate.getTime() + 1 * 60 * 60000).toISOString(),
+          description: 'Заказ отменен',
+          completed: true,
+          current: true
+        }
+      ];
     }
 
-    if (status === 'SHIPPED' || status === 'COMPLETED') {
-      baseSteps.push({
-        status: 'SHIPPED',
-        timestamp: new Date(orderDate.getTime() + 2 * 60 * 60000).toISOString(),
-        description: 'Заказ отправлен',
-        completed: true
-      });
-    }
-
-    if (status === 'COMPLETED') {
-      baseSteps.push({
-        status: 'COMPLETED',
-        timestamp: new Date(orderDate.getTime() + 4 * 60 * 60000).toISOString(),
-        description: 'Заказ доставлен получателю',
-        completed: true
-      });
-    }
-
-    if (status === 'CANCELLED') {
-      baseSteps.push({
-        status: 'CANCELLED',
-        timestamp: new Date(orderDate.getTime() + 1 * 60 * 60000).toISOString(),
-        description: 'Заказ отменен',
-        completed: true
-      });
-    }
-
-    return baseSteps;
+    return allSteps;
   };
 
-  const getStatusIcon = (status: string, completed: boolean) => {
+  const getCurrentStatus = (order: Order) => {
+    const steps = order.trackingSteps || [];
+    const currentStep = steps.find(step => step.current);
+    return currentStep || steps[steps.length - 1];
+  };
+
+  const getStatusIcon = (status: string, completed: boolean, isCurrent: boolean = false) => {
+    if (isCurrent) {
+      switch (status) {
+        case 'CREATED':
+          return <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center animate-pulse shadow-lg">
+            <ClockIcon className="h-4 w-4 text-white" />
+          </div>;
+        case 'COURIER_WAIT':
+          return <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center animate-pulse shadow-lg">
+            <UserIcon className="h-4 w-4 text-white" />
+          </div>;
+        case 'COURIER_PICKED':
+          return <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center animate-pulse shadow-lg">
+            <TruckIcon className="h-4 w-4 text-white" />
+          </div>;
+        case 'ENROUTE':
+          return <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center animate-pulse shadow-lg">
+            <TruckIcon className="h-4 w-4 text-white" />
+          </div>;
+        case 'DELIVERED':
+          return <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+            <CheckCircleIcon className="h-4 w-4 text-white" />
+          </div>;
+        case 'CANCELED':
+          return <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-lg">
+            <XMarkIcon className="h-4 w-4 text-white" />
+          </div>;
+        default:
+          return <div className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center">
+            <ClockIcon className="h-4 w-4 text-white" />
+          </div>;
+      }
+    }
+
     if (!completed) {
-      return <ClockIcon className="h-5 w-5 text-gray-400" />;
+      return <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center opacity-50">
+        <ClockIcon className="h-4 w-4 text-gray-500" />
+      </div>;
     }
 
     switch (status) {
       case 'CREATED':
-        return <CheckCircleIcon className="h-5 w-5 text-blue-500" />;
-      case 'PAID':
-        return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
-      case 'SHIPPED':
-        return <TruckIcon className="h-5 w-5 text-orange-500" />;
-      case 'COMPLETED':
-        return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
-      case 'CANCELLED':
-        return <XMarkIcon className="h-5 w-5 text-red-500" />;
+        return <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-md">
+          <ClockIcon className="h-4 w-4 text-white" />
+        </div>;
+      case 'COURIER_WAIT':
+        return <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center shadow-md">
+          <UserIcon className="h-4 w-4 text-white" />
+        </div>;
+      case 'COURIER_PICKED':
+        return <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center shadow-md">
+          <TruckIcon className="h-4 w-4 text-white" />
+        </div>;
+      case 'ENROUTE':
+        return <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center shadow-md">
+          <TruckIcon className="h-4 w-4 text-white" />
+        </div>;
+      case 'DELIVERED':
+        return <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shadow-md">
+          <CheckCircleIcon className="h-4 w-4 text-white" />
+        </div>;
+      case 'CANCELED':
+        return <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-md">
+          <XMarkIcon className="h-4 w-4 text-white" />
+        </div>;
       default:
-        return <ClockIcon className="h-5 w-5 text-gray-400" />;
+        return <div className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center">
+          <ClockIcon className="h-4 w-4 text-white" />
+        </div>;
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
       case 'CREATED': return 'Создан';
-      case 'PAID': return 'Оплачен';
-      case 'SHIPPED': return 'Отправлен';
-      case 'COMPLETED': return 'Доставлен';
-      case 'CANCELLED': return 'Отменен';
+      case 'COURIER_WAIT': return 'Ожидает курьера';
+      case 'COURIER_PICKED': return 'Курьер забрал';
+      case 'ENROUTE': return 'В пути';
+      case 'DELIVERED': return 'Доставлен';
+      case 'CANCELED': return 'Отменен';
       default: return status;
     }
   };
 
-  const formatPrice = (price: number) => {
+  const formatPrice = (price: number | string | undefined) => {
+    if (!price || isNaN(Number(price))) {
+      return '0 сом';
+    }
     return new Intl.NumberFormat('ru-RU', {
       style: 'currency',
       currency: 'KGS',
       minimumFractionDigits: 0,
-    }).format(price);
+    }).format(Number(price));
   };
 
   // Функции для работы с датами
@@ -362,6 +515,17 @@ export default function TrackingPage() {
     setShowDateTimeTo(false);
   };
 
+  const openOrderModal = (order: Order) => {
+    setSelectedOrder(order);
+    setShowOrderModal(true);
+  };
+
+  const closeOrderModal = () => {
+    setSelectedOrder(null);
+    setShowOrderModal(false);
+    setExpandedDelivery(false);
+  };
+
   // Обработка кликов вне элементов
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -380,6 +544,7 @@ export default function TrackingPage() {
 
   return (
     <AdminLayout>
+      <style dangerouslySetInnerHTML={{ __html: deliveryAnimations }} />
       <div className="space-y-6">
         {/* Header */}
         <div className="bg-gradient-to-r from-gray-800/60 to-gray-700/60 backdrop-blur-sm rounded-xl p-8 border border-gray-600/50">
@@ -389,8 +554,8 @@ export default function TrackingPage() {
                 <TruckIcon className="h-8 w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold text-white mb-2">Заказы</h1>
-                <p className="text-gray-300 text-lg">Управление заказами клиентов</p>
+                <h1 className="text-4xl font-bold text-white mb-2">Трекинг доставки</h1>
+                <p className="text-gray-300 text-lg">Отслеживания заказов</p>
               </div>
             </div>
 
@@ -398,40 +563,36 @@ export default function TrackingPage() {
             <div className="hidden lg:flex items-start space-x-6">
               {/* Left Column */}
               <div className="space-y-3">
-                {/* Today Orders */}
-                <div className="flex items-center justify-between w-40">
+                {/* Created Orders */}
+                <div className="flex items-center justify-between w-48">
                   <div className="flex items-center space-x-2">
                     <ClockIcon className="w-4 h-4 text-blue-500" />
-                    <span className="text-gray-400 text-sm">Сегодня:</span>
+                    <span className="text-gray-400 text-sm whitespace-nowrap">Созданы:</span>
                   </div>
-                  <span className="text-white font-semibold text-sm w-6 text-right">
-                    {allOrders.filter(order => {
-                      const today = new Date().toDateString();
-                      const orderDate = new Date(order.createdAt).toDateString();
-                      return orderDate === today;
-                    }).length}
+                  <span className="text-white font-semibold text-sm w-8 text-right">
+                    {allOrders.filter(order => order.status === 'CREATED').length}
                   </span>
                 </div>
 
                 {/* Waiting for Courier */}
-                <div className="flex items-center justify-between w-44">
+                <div className="flex items-center justify-between w-48">
                   <div className="flex items-center space-x-2">
-                    <ExclamationTriangleIcon className="w-4 h-4 text-yellow-500" />
+                    <UserIcon className="w-4 h-4 text-yellow-500" />
                     <span className="text-gray-400 text-sm whitespace-nowrap">Ожидает курьера:</span>
                   </div>
-                  <span className="text-white font-semibold text-sm w-6 text-right">
-                    {allOrders.filter(order => order.status === 'PENDING' || order.status === 'PAID').length}
+                  <span className="text-white font-semibold text-sm w-8 text-right">
+                    {allOrders.filter(order => order.status === 'COURIER_WAIT').length}
                   </span>
                 </div>
 
-                {/* Courier Accepted */}
-                <div className="flex items-center justify-between w-40">
+                {/* Courier Picked */}
+                <div className="flex items-center justify-between w-48">
                   <div className="flex items-center space-x-2">
-                    <UserIcon className="w-4 h-4 text-blue-400" />
-                    <span className="text-gray-400 text-sm whitespace-nowrap">Курьер принял:</span>
+                    <TruckIcon className="w-4 h-4 text-orange-400" />
+                    <span className="text-gray-400 text-sm whitespace-nowrap">Курьер забрал:</span>
                   </div>
-                  <span className="text-white font-semibold text-sm w-6 text-right">
-                    {allOrders.filter(order => order.status === 'PROCESSING').length}
+                  <span className="text-white font-semibold text-sm w-8 text-right">
+                    {allOrders.filter(order => order.status === 'COURIER_PICKED').length}
                   </span>
                 </div>
               </div>
@@ -439,34 +600,34 @@ export default function TrackingPage() {
               {/* Right Column */}
               <div className="space-y-3">
                 {/* In Transit */}
-                <div className="flex items-center justify-between w-32">
+                <div className="flex items-center justify-between w-48">
                   <div className="flex items-center space-x-2">
                     <MapPinIcon className="w-4 h-4 text-purple-500" />
                     <span className="text-gray-400 text-sm whitespace-nowrap">В пути:</span>
                   </div>
-                  <span className="text-white font-semibold text-sm w-6 text-right">
+                  <span className="text-white font-semibold text-sm w-8 text-right">
                     {allOrders.filter(order => order.status === 'SHIPPED').length}
                   </span>
                 </div>
 
                 {/* Delivered */}
-                <div className="flex items-center justify-between w-32">
+                <div className="flex items-center justify-between w-48">
                   <div className="flex items-center space-x-2">
                     <CheckCircleIcon className="w-4 h-4 text-green-500" />
                     <span className="text-gray-400 text-sm whitespace-nowrap">Доставлен:</span>
                   </div>
-                  <span className="text-white font-semibold text-sm w-6 text-right">
-                    {allOrders.filter(order => order.status === 'DELIVERED' || order.status === 'COMPLETED').length}
+                  <span className="text-white font-semibold text-sm w-8 text-right">
+                    {allOrders.filter(order => order.status === 'DELIVERED').length}
                   </span>
                 </div>
 
                 {/* Cancelled */}
-                <div className="flex items-center justify-between w-32">
+                <div className="flex items-center justify-between w-48">
                   <div className="flex items-center space-x-2">
                     <XMarkIcon className="w-4 h-4 text-red-500" />
                     <span className="text-gray-400 text-sm whitespace-nowrap">Отменен:</span>
                   </div>
-                  <span className="text-white font-semibold text-sm w-6 text-right">
+                  <span className="text-white font-semibold text-sm w-8 text-right">
                     {allOrders.filter(order => order.status === 'CANCELLED').length}
                   </span>
                 </div>
@@ -487,40 +648,25 @@ export default function TrackingPage() {
           {/* Mobile Statistics */}
           <div className="lg:hidden mt-8 pt-6 border-t border-gray-600/50">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {/* Today Orders */}
+              {/* Created Orders */}
               <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
                 <div className="flex items-center space-x-2">
                   <ClockIcon className="w-4 h-4 text-blue-500" />
-                  <span className="text-sm text-gray-400">Сегодня</span>
+                  <span className="text-sm text-gray-400">Созданы</span>
                 </div>
                 <div className="text-xl font-bold text-white mt-2">
-                  {allOrders.filter(order => {
-                    const today = new Date().toDateString();
-                    const orderDate = new Date(order.createdAt).toDateString();
-                    return orderDate === today;
-                  }).length}
+                  {allOrders.filter(order => order.status === 'CREATED').length}
                 </div>
               </div>
 
               {/* Waiting for Courier */}
               <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
                 <div className="flex items-center space-x-2">
-                  <ExclamationTriangleIcon className="w-4 h-4 text-yellow-500" />
+                  <UserIcon className="w-4 h-4 text-yellow-500" />
                   <span className="text-sm text-gray-400">Ожидает курьера</span>
                 </div>
                 <div className="text-xl font-bold text-white mt-2">
-                  {allOrders.filter(order => order.status === 'PENDING' || order.status === 'PAID').length}
-                </div>
-              </div>
-
-              {/* Courier Accepted */}
-              <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
-                <div className="flex items-center space-x-2">
-                  <UserIcon className="w-4 h-4 text-blue-400" />
-                  <span className="text-sm text-gray-400">Курьер принял</span>
-                </div>
-                <div className="text-xl font-bold text-white mt-2">
-                  {allOrders.filter(order => order.status === 'PROCESSING').length}
+                  {allOrders.filter(order => order.status === 'COURIER_WAIT').length}
                 </div>
               </div>
 
@@ -535,6 +681,17 @@ export default function TrackingPage() {
                 </div>
               </div>
 
+              {/* Courier Picked */}
+              <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
+                <div className="flex items-center space-x-2">
+                  <TruckIcon className="w-4 h-4 text-orange-400" />
+                  <span className="text-sm text-gray-400">Курьер забрал</span>
+                </div>
+                <div className="text-xl font-bold text-white mt-2">
+                  {allOrders.filter(order => order.status === 'COURIER_PICKED').length}
+                </div>
+              </div>
+
               {/* Delivered */}
               <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
                 <div className="flex items-center space-x-2">
@@ -542,7 +699,7 @@ export default function TrackingPage() {
                   <span className="text-sm text-gray-400">Доставлен</span>
                 </div>
                 <div className="text-xl font-bold text-white mt-2">
-                  {allOrders.filter(order => order.status === 'DELIVERED' || order.status === 'COMPLETED').length}
+                  {allOrders.filter(order => order.status === 'DELIVERED').length}
                 </div>
               </div>
 
@@ -953,119 +1110,74 @@ export default function TrackingPage() {
                 <p className="text-gray-500">У вас пока нет заказов для отслеживания</p>
               </div>
             ) : (
-              <div className="grid gap-6">
+              <div className="grid gap-3">
                 {orders.map((order) => (
                   <div
                     key={order.id}
-                    className="bg-gradient-to-r from-gray-800/50 to-gray-700/30 backdrop-blur-sm rounded-2xl border border-gray-700/30 p-6 hover:border-orange-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-orange-500/10"
+                    onClick={() => openOrderModal(order)}
+                    className="bg-gradient-to-r from-gray-800/60 to-gray-700/40 backdrop-blur-sm rounded-lg border border-gray-700/40 p-4 hover:border-orange-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-orange-500/5 group cursor-pointer"
                   >
-                    {/* Order Header */}
-                    <div className="flex flex-col lg:flex-row lg:items-start justify-between mb-6 gap-4">
+                    <div className="flex items-center space-x-4">
+                      {/* Status Icon */}
+                      <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center">
+                        {order.status === 'DELIVERED' ? (
+                          <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <CheckCircleIcon className="h-6 w-6 text-white" />
+                          </div>
+                        ) : order.status === 'COURIER_PICKED' ? (
+                          <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <TruckIcon className="h-6 w-6 text-white" />
+                          </div>
+                        ) : order.status === 'CREATED' ? (
+                          <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <ClockIcon className="h-6 w-6 text-white" />
+                          </div>
+                        ) : order.status === 'COURIER_WAIT' ? (
+                          <div className="w-12 h-12 bg-yellow-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <UserIcon className="h-6 w-6 text-white" />
+                          </div>
+                        ) : order.status === 'ENROUTE' ? (
+                          <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <TruckIcon className="h-6 w-6 text-white" />
+                          </div>
+                        ) : order.status === 'CANCELED' ? (
+                          <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <XMarkIcon className="h-6 w-6 text-white" />
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <ShoppingBagIcon className="h-6 w-6 text-white" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Product Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-3 mb-4">
-                          <div className="flex items-center space-x-2">
-                            <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-                            <span className="text-sm text-gray-400">Заказ от {new Date(order.createdAt).toLocaleDateString('ru-RU')}</span>
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                          <div className="flex items-center space-x-2">
-                            <UserIcon className="h-4 w-4 text-gray-400" />
-                            <span className="text-white text-sm">{order.customerName}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <PhoneIcon className="h-4 w-4 text-gray-400" />
-                            <span className="text-white text-sm">{order.customerPhone}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <CurrencyDollarIcon className="h-4 w-4 text-gray-400" />
-                            <span className="text-white text-sm font-medium">{formatPrice(order.totalPrice)}</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex-shrink-0">
-                        <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ${
-                          order.status === 'COMPLETED' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                          order.status === 'SHIPPED' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
-                          order.status === 'CANCELLED' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-                          'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                        }`}>
-                          <span className="w-4 h-4 flex-shrink-0 mr-2">
-                            {getStatusIcon(order.status, true)}
-                          </span>
-                          {getStatusText(order.status)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Tracking Timeline */}
-                    <div className="border-t border-gray-700/30 pt-6">
-                      <h4 className="text-sm font-semibold text-gray-300 mb-4 flex items-center">
-                        <TruckIcon className="h-4 w-4 mr-2" />
-                        Статус доставки
-                      </h4>
-                      <div className="relative">
-                        <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gradient-to-b from-orange-500 via-orange-500 to-gray-600"></div>
-                        <div className="space-y-4">
-                          {order.trackingSteps?.map((step, index) => (
-                            <div key={index} className="relative flex items-start space-x-4">
-                              <div className={`relative z-10 flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                                step.completed 
-                                  ? 'bg-gradient-to-r from-orange-500 to-red-600 shadow-lg shadow-orange-500/30' 
-                                  : 'bg-gray-700 border-2 border-gray-600'
-                              }`}>
-                                {step.completed ? (
-                                  <CheckCircleIcon className="h-4 w-4 text-white" />
-                                ) : (
-                                  <ClockIcon className="h-4 w-4 text-gray-400" />
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0 pb-4">
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                                  <p className={`text-sm font-medium ${
-                                    step.completed ? 'text-white' : 'text-gray-500'
-                                  }`}>
-                                    {step.description}
-                                  </p>
-                                  <span className="text-xs text-gray-500 flex-shrink-0">
-                                    {new Date(step.timestamp).toLocaleString('ru-RU', { 
-                                      day: '2-digit',
-                                      month: '2-digit',
-                                      year: 'numeric',
-                                      hour: '2-digit', 
-                                      minute: '2-digit' 
-                                    })}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Footer with Product Names and Order Number */}
-                    <div className="border-t border-gray-700/30 pt-4 mt-6">
-                      <div className="space-y-2">
-                        {/* Product Names */}
-                        <div className="flex flex-wrap gap-2">
+                        <h3 className="text-white text-sm font-semibold truncate mb-1">
                           {order.items && order.items.length > 0 ? (
                             order.items.map((item, index) => (
-                              <span key={item.id} className="text-white font-medium text-sm">
+                              <span key={item.id}>
                                 {item.variant?.product?.name || 'Товар без названия'}
                                 {index < order.items.length - 1 && ', '}
                               </span>
                             ))
                           ) : (
-                            <span className="text-gray-400 text-sm">Нет товаров</span>
+                            <span className="text-gray-400">Нет товаров</span>
                           )}
+                        </h3>
+                        <p className="text-gray-400 text-xs font-mono">
+                          #{String(order.orderNumber || order.id).slice(-6)}
+                        </p>
                         </div>
-                        {/* Order Number */}
-                        <div className="text-gray-400 text-xs">
-                          {order.orderNumber || order.id}
-                        </div>
+
+                      {/* Price and Quantity */}
+                      <div className="flex-shrink-0 text-right">
+                        <p className="text-yellow-300 text-sm font-semibold">
+                          {formatPrice(order.totalPrice)}
+                        </p>
+                        <p className="text-gray-400 text-xs">
+                          {order.items?.length || 0} шт.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1075,6 +1187,199 @@ export default function TrackingPage() {
           </div>
         </div>
       </div>
+
+      {/* Order Details Modal */}
+      {showOrderModal && selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl rounded-2xl border border-gray-700/50 shadow-2xl ring-1 ring-white/5 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-orange-500/20 rounded-lg">
+                  <TruckIcon className="h-5 w-5 text-orange-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Детали заказа</h2>
+                  <p className="text-gray-300 text-xs font-mono">#{String(selectedOrder.orderNumber || selectedOrder.id).slice(-6)}</p>
+                </div>
+              </div>
+              <button
+                onClick={closeOrderModal}
+                className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
+              >
+                <XMarkIcon className="h-5 w-5 text-gray-400" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Order Items */}
+              <div>
+                <h3 className="text-base font-semibold text-white mb-3 flex items-center">
+                  <ShoppingBagIcon className="h-4 w-4 text-orange-400 mr-2" />
+                  Товары в заказе
+                </h3>
+                <div className="space-y-2">
+                  {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                    selectedOrder.items.map((item, index) => (
+                      <div key={item.id} className="bg-gray-700/30 rounded-lg p-3 border border-gray-600/30">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h4 className="text-white font-medium text-xs mb-1">
+                              {item.variant?.product?.name || 'Товар без названия'}
+                            </h4>
+                            <div className="flex items-center space-x-3 text-xs text-gray-300">
+                              <span>Кол-во: {item.quantity}</span>
+                              <span>Цена: {formatPrice(item.price)}</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-yellow-300 font-semibold text-xs">
+                              {formatPrice(item.price * item.quantity)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-6 text-gray-400">
+                      <ShoppingBagIcon className="h-8 w-8 mx-auto mb-2 text-gray-600" />
+                      <p className="text-xs">Нет товаров в заказе</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Order Summary */}
+              <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
+                <h3 className="text-base font-semibold text-white mb-3 flex items-center">
+                  <CurrencyDollarIcon className="h-4 w-4 text-green-400 mr-2" />
+                  Итоговая сумма
+                </h3>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300 text-sm">Общая сумма:</span>
+                  <span className="text-yellow-300 font-semibold text-base">
+                    {formatPrice(selectedOrder.totalPrice)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-gray-300 text-sm">Количество товаров:</span>
+                  <span className="text-white font-medium text-sm">
+                    {selectedOrder.items?.length || 0} шт.
+                  </span>
+                </div>
+              </div>
+
+              {/* Delivery Process */}
+              <div>
+                <div 
+                  className="flex items-center justify-between cursor-pointer mb-4 p-3 rounded-lg bg-gradient-to-r from-gray-800/40 to-gray-700/40 hover:from-gray-700/50 hover:to-gray-600/50 transition-all duration-300 group"
+                  onClick={() => setExpandedDelivery(!expandedDelivery)}
+                >
+                  <h3 className="text-lg font-bold text-white flex items-center group-hover:text-purple-200 transition-colors duration-300">
+                    <div className="p-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg mr-3 group-hover:scale-110 transition-transform duration-300">
+                      <MapPinIcon className="h-5 w-5 text-white" />
+                    </div>
+                    Процесс доставки
+                  </h3>
+                  <div className="flex items-center space-x-3">
+                    {selectedOrder.trackingSteps && selectedOrder.trackingSteps.length > 0 && (
+                      <div className="flex items-center space-x-3 px-3 py-2 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-lg border border-purple-400/30">
+                        {getStatusIcon(getCurrentStatus(selectedOrder).status, getCurrentStatus(selectedOrder).completed, getCurrentStatus(selectedOrder).current)}
+                        <span className="text-white text-sm font-semibold">
+                          {getStatusText(getCurrentStatus(selectedOrder).status)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="p-2 bg-gray-700/50 rounded-lg group-hover:bg-purple-500/20 transition-colors duration-300">
+                      <ChevronDownIcon 
+                        className={`h-5 w-5 text-gray-400 group-hover:text-purple-300 transition-all duration-300 ${
+                          expandedDelivery ? 'rotate-180' : ''
+                        }`} 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {expandedDelivery && (
+                  <div className="space-y-4 overflow-hidden">
+                    {selectedOrder.trackingSteps && selectedOrder.trackingSteps.length > 0 ? (
+                      selectedOrder.trackingSteps.map((step, index) => (
+                        <div 
+                          key={index} 
+                          className={`delivery-step flex items-start space-x-4 p-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] ${
+                            step.current 
+                              ? 'current-step bg-gradient-to-r from-purple-500/30 via-blue-500/20 to-purple-500/30 border-2 border-purple-400/50 shadow-xl' 
+                              : step.completed 
+                                ? 'completed-step bg-gradient-to-r from-gray-800/60 to-gray-700/60 border border-gray-600/40 shadow-md' 
+                                : 'bg-gray-800/30 border border-gray-700/30 opacity-60 hover:opacity-80'
+                          }`}
+                        >
+                          <div className="flex-shrink-0 mt-1">
+                            {getStatusIcon(step.status, step.completed, step.current)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <p className={`text-sm font-semibold ${
+                                step.current 
+                                  ? 'text-white bg-gradient-to-r from-purple-200 to-blue-200 bg-clip-text text-transparent' 
+                                  : step.completed 
+                                    ? 'text-gray-200' 
+                                    : 'text-gray-400'
+                              }`}>
+                                {getStatusText(step.status)}
+                              </p>
+                              {step.current && (
+                                <div className="flex items-center space-x-1">
+                                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
+                                  <span className="text-xs text-purple-300 font-medium">Активно</span>
+                                </div>
+                              )}
+                            </div>
+                            <p className={`text-sm mt-2 leading-relaxed ${
+                              step.current 
+                                ? 'text-gray-200' 
+                                : step.completed 
+                                  ? 'text-gray-300' 
+                                  : 'text-gray-500'
+                            }`}>
+                              {step.description}
+                            </p>
+                            {step.completed && (
+                              <div className="mt-2 flex items-center space-x-1">
+                                <CheckCircleIcon className="h-3 w-3 text-green-400" />
+                                <span className="text-xs text-green-400 font-medium">Завершено</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-400">
+                        <div className="w-16 h-16 bg-gray-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <ClockIcon className="h-8 w-8 text-gray-500" />
+                        </div>
+                        <p className="text-sm font-medium">Информация о доставке недоступна</p>
+                        <p className="text-xs text-gray-500 mt-1">Попробуйте обновить страницу</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end p-4 border-t border-gray-700/50">
+              <button
+                onClick={closeOrderModal}
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium text-sm rounded-lg transition-colors"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

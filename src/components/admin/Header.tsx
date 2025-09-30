@@ -7,6 +7,7 @@ import {
   UserIcon,
   ChevronDownIcon,
   ArrowRightOnRectangleIcon,
+  LockClosedIcon,
 } from '@heroicons/react/24/outline';
 
 export default function Header() {
@@ -49,13 +50,8 @@ export default function Header() {
       {/* Logo and Brand */}
       <div className="flex items-center">
         {/* Logo */}
-        <div className="w-9 h-9 relative sm:mr-4">
-          <Image
-            src="/logo-bugu.svg"
-            alt="Bugu Store"
-            fill
-            className="object-contain"
-          />
+        <div className="w-9 h-9 relative sm:mr-4 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center">
+          <LockClosedIcon className="h-5 w-5 text-white" />
         </div>
         
         {/* Brand text - только desktop */}

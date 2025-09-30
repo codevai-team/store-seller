@@ -28,6 +28,8 @@ import {
   TruckIcon,
   EyeIcon,
   CheckBadgeIcon,
+  CubeIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useToast } from '@/hooks/useToast';
@@ -192,7 +194,24 @@ export default function OrdersPage() {
         ...(dateToString && { dateTo: dateToString }),
       });
 
-      const response = await fetch(`/api/admin/orders?${params}`);
+      // Получаем токен из localStorage
+      const token = localStorage.getItem('adminToken');
+      
+      if (!token) {
+        console.error('Токен не найден в localStorage');
+        showError('Ошибка авторизации', 'Пожалуйста, войдите в систему заново.');
+        return;
+      }
+
+      const response = await fetch(`/api/admin/orders?${params}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+      
       if (response.ok) {
         const data = await response.json();
         setOrders(data.orders);
@@ -205,6 +224,17 @@ export default function OrdersPage() {
           COMPLETED: 0,
           CANCELLED: 0
         });
+      } else if (response.status === 401) {
+        console.error('Ошибка авторизации:', response.status, response.statusText);
+        showError('Сессия истекла', 'Пожалуйста, войдите в систему заново.');
+        // Очищаем localStorage и перенаправляем на страницу входа
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminUser');
+        window.location.href = '/admin/login';
+      } else {
+        const errorData = await response.json();
+        console.error('Ошибка загрузки заказов:', response.status, response.statusText, errorData);
+        showError('Ошибка загрузки заказов', `${response.status} "${response.statusText}" "${JSON.stringify(errorData)}"`);
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -497,7 +527,7 @@ export default function OrdersPage() {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div>
               <h1 className="text-3xl font-bold text-white mb-2">Заказы</h1>
-              <p className="text-gray-300">Управление заказами клиентов</p>
+              <p className="text-gray-300">Отслеживания заказов</p>
             </div>
             
             {/* Статистика */}
@@ -989,72 +1019,68 @@ export default function OrdersPage() {
               const StatusIcon = statusInfo.icon;
               
               return (
-                <div key={order.id} className="bg-gray-800/50 border border-gray-700/50 rounded-lg p-3 sm:p-4 hover:bg-gray-800/70 transition-all duration-200">
-                  <div className="flex items-start sm:items-center justify-between gap-3">
-                    <div className="flex items-start sm:items-center space-x-3 flex-1 min-w-0">
-                      {/* Order Icon */}
-                      <div className="flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 bg-gray-700/50 rounded-lg flex items-center justify-center">
-                        <StatusIcon className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400" />
+                <div key={order.id} className="bg-gradient-to-r from-gray-800/60 to-gray-700/40 backdrop-blur-sm rounded-lg border border-gray-700/40 p-4 hover:border-blue-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-blue-500/5 group">
+                  <div className="flex items-center space-x-4">
+                      {/* Status Icon */}
+                      <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-xl flex items-center justify-center">
+                        {order.status === 'COMPLETED' ? (
+                          <svg className="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : order.status === 'SHIPPED' ? (
+                          <svg className="h-6 w-6 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                          </svg>
+                        ) : order.status === 'CANCELLED' ? (
+                          <svg className="h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        ) : order.status === 'PROCESSING' ? (
+                          <svg className="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        ) : order.status === 'PENDING' ? (
+                          <svg className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                        ) : (
+                          <svg className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                          </svg>
+                        )}
                       </div>
                       
+                    {/* Product Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-                          <h3 className="font-medium text-white text-sm sm:text-base truncate">
-                            {order.orderNumber}
+                      <h3 className="text-white text-sm font-semibold truncate mb-1">
+                        {order.items && order.items.length > 0 ? (
+                          order.items.map((item, index) => (
+                            <span key={item.id}>
+                              {item.variant?.product?.name || 'Товар без названия'}
+                              {index < order.items.length - 1 && ', '}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-gray-400">Нет товаров</span>
+                        )}
                           </h3>
-                          
-                          <div className="flex items-center space-x-2">
-                            <div className={`flex items-center space-x-1 text-xs px-2 py-1 rounded ${statusInfo.color}`}>
-                              <StatusIcon className="h-3 w-3" />
-                              <span>{statusInfo.label}</span>
+                      <p className="text-gray-400 text-xs font-mono">
+                        #{String(order.orderNumber || order.id).slice(-6)}
+                      </p>
                             </div>
                             
-                            <div className={`flex items-center space-x-1 text-xs px-2 py-1 rounded ${contactInfo.color}`}>
-                              <PhoneIcon className="h-3 w-3" />
-                              <span>{contactInfo.label}</span>
+                    {/* Price and Quantity */}
+                    <div className="flex-shrink-0 text-right">
+                      <p className="text-yellow-300 text-sm font-bold">
+                        {formatPrice(order.totalPrice)}
+                      </p>
+                      <p className="text-gray-400 text-xs">
+                        {order.itemsCount || 0} шт.
+                      </p>
                             </div>
 
-                            {order.payment && (
-                              <div className={`flex items-center space-x-1 text-xs px-2 py-1 rounded ${
-                                PAYMENT_STATUSES[order.payment.status as keyof typeof PAYMENT_STATUSES].color
-                              }`}>
-                                <CreditCardIcon className="h-3 w-3" />
-                                <span>{PAYMENT_STATUSES[order.payment.status as keyof typeof PAYMENT_STATUSES].label}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 sm:mt-1">
-                          <div className="flex items-center space-x-1 text-xs sm:text-sm text-gray-400">
-                            <UserIcon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                            <span className="truncate">{order.customerName}</span>
-                          </div>
-                          
-                          <div className="flex items-center space-x-1 text-xs sm:text-sm text-gray-400">
-                            <PhoneIcon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                            <span>{order.customerPhone}</span>
-                          </div>
-                          
-                          <div className="flex items-center space-x-1 text-xs sm:text-sm text-gray-400">
-                            <CurrencyDollarIcon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                            <span className="font-medium text-white">{formatPrice(order.totalPrice)}</span>
-                          </div>
-                          
-                          <div className="flex items-center space-x-1 text-xs sm:text-sm text-gray-400">
-                            <ShoppingBagIcon className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-                            <span>{order.itemsCount} товаров</span>
-                          </div>
-                          
-                          <div className="flex items-center space-x-1 text-xs text-gray-500">
-                            <CalendarDaysIcon className="h-3 w-3 flex-shrink-0" />
-                            <span>{formatDate(order.createdAt)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-end sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 flex-shrink-0">
+                    {/* Action Buttons */}
+                    <div className="flex items-center space-x-2">
                       <button
                         onClick={() => openViewModal(order)}
                         className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-lg transition-colors"
