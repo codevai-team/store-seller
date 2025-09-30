@@ -102,14 +102,19 @@ export async function GET(request: Request) {
       // Строим условия сортировки
       const orderBy: any = {};
       if (sortBy === 'totalPrice') {
-        orderBy.totalPrice = sortOrder;
+        // Для totalPrice используем клиентскую сортировку, так как это вычисляемое поле
+        orderBy.createdAt = 'desc'; // Сортируем по дате как fallback
       } else if (sortBy === 'customerName') {
         orderBy.customerName = sortOrder;
       } else if (sortBy === 'orderNumber') {
         orderBy.orderNumber = sortOrder;
+      } else if (sortBy === 'status') {
+        orderBy.status = sortOrder;
       } else {
         orderBy.createdAt = sortOrder;
       }
+
+      console.log('API Sorting:', { sortBy, sortOrder, orderBy });
 
       // Получаем заказы с подсчетом общего количества и статистики
       const [orders, totalCount, stats] = await Promise.all([
@@ -186,6 +191,11 @@ export async function GET(request: Request) {
           limit,
           total: totalCount,
           totalPages: Math.ceil(totalCount / limit)
+        },
+        sorting: {
+          sortBy,
+          sortOrder,
+          clientSideSorting: sortBy === 'totalPrice'
         },
         statistics: statusStats
       });

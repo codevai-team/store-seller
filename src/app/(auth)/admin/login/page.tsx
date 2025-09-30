@@ -105,126 +105,126 @@ export default function AdminLogin() {
               <div className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center animate-bounce">
                 <SparklesIcon className="h-4 w-4 text-yellow-800" />
               </div>
-            </div>
+          </div>
             
             <h1 className="text-4xl font-black bg-gradient-to-r from-white via-blue-100 to-purple-200 bg-clip-text text-transparent mb-4 animate-fade-in">
               Добро пожаловать
             </h1>
             <p className="text-blue-100 text-lg font-medium animate-fade-in-delayed">
               Войдите в панель администратора
-            </p>
-          </div>
-
+          </p>
+        </div>
+        
           {/* Login Form */}
           <div className="bg-white/10 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/20 p-8 animate-slide-up">
             <form className="space-y-6" onSubmit={handleSubmit}>
               {/* Phone Input */}
               <div className="space-y-3">
                 <label htmlFor="login" className="block text-sm font-semibold text-blue-100">
-                  Номер телефона
-                </label>
+                Номер телефона
+              </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <UserIcon className="h-5 w-5 text-blue-300 group-focus-within:text-indigo-400 transition-colors duration-300" />
                   </div>
-                  <input
-                    id="login"
-                    name="login"
-                    type="tel"
-                    required
+                <input
+                  id="login"
+                  name="login"
+                  type="tel"
+                  required
                     className="block w-full pl-12 pr-4 py-4 bg-white/20 border border-white/30 rounded-2xl text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all duration-300 backdrop-blur-sm group-hover:bg-white/30"
                     placeholder="Введите номер телефона"
-                    value={login}
-                    onChange={(e) => setLogin(e.target.value)}
-                  />
+                  value={login}
+                  onChange={(e) => setLogin(e.target.value)}
+                />
                   <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
-                </div>
               </div>
-
+            </div>
+            
               {/* Password Input */}
               <div className="space-y-3">
                 <label htmlFor="password" className="block text-sm font-semibold text-blue-100">
-                  Пароль
-                </label>
+                Пароль
+              </label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <LockClosedIcon className="h-5 w-5 text-blue-300 group-focus-within:text-indigo-400 transition-colors duration-300" />
                   </div>
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    required
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  required
                     className="block w-full pl-12 pr-12 py-4 bg-white/20 border border-white/30 rounded-2xl text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all duration-300 backdrop-blur-sm group-hover:bg-white/30"
                     placeholder="Введите пароль"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    onClick={togglePasswordVisibility}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={togglePasswordVisibility}
                     className="absolute inset-y-0 right-0 flex items-center pr-4 text-blue-300 hover:text-white focus:outline-none transition-colors duration-300"
-                  >
-                    {showPassword ? (
+                >
+                  {showPassword ? (
                       <EyeSlashIcon className="h-5 w-5" aria-hidden="true" />
-                    ) : (
+                  ) : (
                       <EyeIcon className="h-5 w-5" aria-hidden="true" />
-                    )}
-                  </button>
+                  )}
+                </button>
                   <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
-                </div>
-              </div>
+            </div>
+          </div>
 
               {/* Error Message */}
-              {error && (
+          {error && (
                 <div className="bg-red-500/20 border border-red-400/30 text-red-200 text-sm p-4 rounded-2xl backdrop-blur-sm animate-shake">
                   <div className="flex items-center">
                     <div className="w-2 h-2 bg-red-400 rounded-full mr-3 animate-pulse"></div>
-                    {error}
+              {error}
                   </div>
-                </div>
-              )}
+            </div>
+          )}
 
               {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={isLoading}
+            <button
+              type="submit"
+              disabled={isLoading}
                 className="w-full relative group flex justify-center items-center py-4 px-6 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white font-bold rounded-2xl shadow-2xl hover:shadow-indigo-500/25 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none transition-all duration-300 overflow-hidden"
-              >
+            >
                 <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-2xl blur opacity-0 group-hover:opacity-75 transition-opacity duration-300"></div>
                 <div className="relative flex items-center">
-                  {isLoading ? (
+              {isLoading ? (
                     <>
-                      <svg
+                <svg
                         className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
                       Вход...
                     </>
-                  ) : (
+              ) : (
                     <>
                       <span className="mr-2">Войти</span>
                       <SparklesIcon className="h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
                     </>
-                  )}
+              )}
                 </div>
-              </button>
+            </button>
             </form>
           </div>
 
@@ -233,9 +233,9 @@ export default function AdminLogin() {
             <p className="text-blue-200 text-sm font-medium">
               Store Seller Admin Panel
             </p>
+            </div>
           </div>
         </div>
-      </div>
 
       <style jsx>{`
         @keyframes float {

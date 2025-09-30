@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   TruckIcon,
   ClockIcon,
@@ -22,6 +22,7 @@ import {
   CubeIcon,
 } from '@heroicons/react/24/outline';
 import AdminLayout from '@/components/admin/AdminLayout';
+import { useToast } from '@/hooks/useToast';
 
 interface OrderItem {
   id: string;
@@ -63,78 +64,28 @@ interface Order {
   }[];
 }
 
-type SortOption = 'newest' | 'orderNumber' | 'totalPrice' | 'customerName' | 'status';
+type SortOption = 'date' | 'totalPrice' | 'status';
 type SortOrder = 'asc' | 'desc';
 
 export default function TrackingPage() {
-  // CSS анимации для процесса доставки
+  const { showError, showSuccess } = useToast();
+  
+  // Минимальные CSS анимации
   const deliveryAnimations = `
-    @keyframes slideInFromLeft {
-      from {
-        opacity: 0;
-        transform: translateX(-20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateX(0);
-      }
-    }
-    
-    @keyframes fadeInUp {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-    
-    @keyframes glow {
-      0%, 100% {
-        box-shadow: 0 0 5px rgba(147, 51, 234, 0.3);
-      }
-      50% {
-        box-shadow: 0 0 20px rgba(147, 51, 234, 0.6), 0 0 30px rgba(147, 51, 234, 0.4);
-      }
-    }
-    
-    @keyframes bounce {
-      0%, 20%, 50%, 80%, 100% {
-        transform: translateY(0);
-      }
-      40% {
-        transform: translateY(-3px);
-      }
-      60% {
-        transform: translateY(-2px);
-      }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
     
     .delivery-step {
-      animation: slideInFromLeft 0.5s ease-out;
-    }
-    
-    .delivery-step:nth-child(1) { animation-delay: 0.1s; }
-    .delivery-step:nth-child(2) { animation-delay: 0.2s; }
-    .delivery-step:nth-child(3) { animation-delay: 0.3s; }
-    .delivery-step:nth-child(4) { animation-delay: 0.4s; }
-    .delivery-step:nth-child(5) { animation-delay: 0.5s; }
-    
-    .current-step {
-      animation: glow 2s ease-in-out infinite, bounce 2s ease-in-out infinite;
-    }
-    
-    .completed-step {
-      animation: fadeInUp 0.3s ease-out;
+      animation: fadeIn 0.3s ease-out;
     }
   `;
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [sortBy, setSortBy] = useState<SortOption>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [dateFromFilter, setDateFromFilter] = useState<string>('');
   const [dateToFilter, setDateToFilter] = useState<string>('');
@@ -145,6 +96,8 @@ export default function TrackingPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [expandedDelivery, setExpandedDelivery] = useState(false);
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [forceUpdate, setForceUpdate] = useState(0);
 
   // Refs для инпутов даты и времени
   const dateFromInputRef = useRef<HTMLInputElement>(null);
@@ -155,9 +108,15 @@ export default function TrackingPage() {
   // Состояние для всех заказов без фильтрации по поиску
   const [allOrders, setAllOrders] = useState<Order[]>([]);
 
+  // Загружаем данные при монтировании компонента
   useEffect(() => {
     fetchOrders();
-  }, [statusFilter, sortBy, sortOrder, dateFromFilter, dateToFilter, timeFromFilter, timeToFilter]);
+  }, []);
+
+  // Обновляем данные при изменении фильтров (но не сортировки)
+  useEffect(() => {
+    fetchOrders();
+  }, [statusFilter, dateFromFilter, dateToFilter, timeFromFilter, timeToFilter]);
 
   // Отдельный useEffect для фильтрации по поиску
   useEffect(() => {
@@ -182,6 +141,8 @@ export default function TrackingPage() {
       
       if (!token) {
         console.error('Токен не найден в localStorage');
+          showError('Ошибка авторизации', 'Пожалуйста, войдите в систему заново.');
+          window.location.href = '/admin/login';
         return;
       }
       
@@ -192,12 +153,22 @@ export default function TrackingPage() {
       const params = new URLSearchParams({
         page: '1',
         limit: '100',
-        sortBy: sortBy === 'newest' ? 'createdAt' : sortBy,
+        sortBy: sortBy === 'date' ? 'createdAt' : sortBy,
         sortOrder,
         ...(statusFilter !== 'all' && { status: statusFilter }),
         ...(dateFromString && { dateFrom: dateFromString }),
         ...(dateToString && { dateTo: dateToString }),
       });
+
+      console.log('API Request params:', {
+        sortBy: sortBy === 'date' ? 'createdAt' : sortBy,
+        sortOrder,
+        statusFilter,
+        dateFromString,
+        dateToString
+      });
+
+      console.log('Current sortBy:', sortBy, 'sortOrder:', sortOrder);
       
       const response = await fetch(`/api/admin/orders?${params}`, {
         method: 'GET',
@@ -259,17 +230,41 @@ export default function TrackingPage() {
           };
         });
 
+        // Дополнительная клиентская сортировка для totalPrice
+        if (sortBy === 'totalPrice') {
+          ordersWithTracking.sort((a: any, b: any) => {
+            const priceA = Number(a.totalPrice) || 0;
+            const priceB = Number(b.totalPrice) || 0;
+            
+            if (sortOrder === 'desc') {
+              return priceB - priceA; // От большего к меньшему
+            } else {
+              return priceA - priceB; // От меньшего к большему
+            }
+          });
+          
+          console.log('Client-side sorting applied:', {
+            sortBy: 'totalPrice',
+            sortOrder,
+            firstOrder: ordersWithTracking[0]?.totalPrice,
+            lastOrder: ordersWithTracking[ordersWithTracking.length - 1]?.totalPrice
+          });
+        }
+
         // Сохраняем все заказы
         setAllOrders(ordersWithTracking);
+        setOrders(ordersWithTracking);
       } else {
         const errorData = await response.text();
         console.error('Ошибка загрузки заказов:', response.status, response.statusText, errorData);
         
         // Если ошибка авторизации, возможно токен истек
         if (response.status === 401) {
-          console.log('Токен истек или невалиден, перезагружаем страницу');
-          // Можно перенаправить на логин или обновить токен
-          // window.location.href = '/admin/login';
+            console.log('Токен истек или невалиден, очищаем localStorage и перенаправляем на логин');
+            localStorage.removeItem('adminToken');
+            showError('Сессия истекла', 'Пожалуйста, войдите в систему заново.');
+            window.location.href = '/admin/login';
+            return;
         }
       }
     } catch (error) {
@@ -331,8 +326,8 @@ export default function TrackingPage() {
         },
         {
           status: 'CANCELED',
-          timestamp: new Date(orderDate.getTime() + 1 * 60 * 60000).toISOString(),
-          description: 'Заказ отменен',
+        timestamp: new Date(orderDate.getTime() + 1 * 60 * 60000).toISOString(),
+        description: 'Заказ отменен',
           completed: true,
           current: true
         }
@@ -526,6 +521,154 @@ export default function TrackingPage() {
     setExpandedDelivery(false);
   };
 
+  const handleStatusClick = (e: React.MouseEvent, order: Order) => {
+    e.stopPropagation(); // Предотвращаем открытие модального окна
+    setSelectedOrder(order);
+    setShowStatusDropdown(true);
+  };
+
+  const toggleSortOrder = () => {
+    const newOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+    console.log('🔄 Toggling sort order to:', newOrder);
+    
+    // МГНОВЕННО применяем сортировку к текущим заказам
+    const sortedOrders = applySorting(orders, sortBy, newOrder);
+    const sortedAllOrders = applySorting(allOrders, sortBy, newOrder);
+    
+    console.log('📦 Orders after toggle:', sortedOrders.slice(0, 3).map(o => ({ id: o.id, price: o.totalPrice })));
+    
+    setSortOrder(newOrder);
+    setOrders(sortedOrders);
+    setAllOrders(sortedAllOrders);
+    
+    // Принудительно обновляем компонент
+    setForceUpdate(prev => prev + 1);
+    
+    // НЕ вызываем fetchOrders сразу
+    // setTimeout(() => fetchOrders(), 100);
+  };
+
+  // Функция для применения сортировки к массиву заказов
+  const applySorting = useCallback((ordersArray: Order[], sortType: SortOption, sortDirection: SortOrder) => {
+    console.log('🔧 applySorting called with:', { sortType, sortDirection, ordersCount: ordersArray.length });
+    
+    // Определяем порядок статусов для логической сортировки
+    const statusOrder = {
+      'CREATED': 1,        // Создан
+      'COURIER_WAIT': 2,   // Ожидает курьера
+      'COURIER_PICKED': 3, // Курьер забрал
+      'ENROUTE': 4,        // В пути
+      'DELIVERED': 5,      // Доставлен
+      'CANCELED': 6        // Отменен
+    };
+    
+    const sorted = [...ordersArray].sort((a, b) => {
+      if (sortType === 'totalPrice') {
+        const priceA = Number(a.totalPrice) || 0;
+        const priceB = Number(b.totalPrice) || 0;
+        const result = sortDirection === 'desc' ? priceB - priceA : priceA - priceB;
+        return result;
+      } else if (sortType === 'date') {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return sortDirection === 'desc' ? dateB - dateA : dateA - dateB;
+      } else { // status - логическая сортировка по процессу доставки
+        const statusA = statusOrder[a.status as keyof typeof statusOrder] || 999;
+        const statusB = statusOrder[b.status as keyof typeof statusOrder] || 999;
+        return sortDirection === 'desc' ? statusB - statusA : statusA - statusB;
+      }
+    });
+    
+    console.log('✅ Sorting result:', sorted.slice(0, 3).map(o => ({ id: o.id, status: o.status, price: o.totalPrice })));
+    return sorted;
+  }, []);
+
+  // Функция для изменения сортировки с автоматическим порядком
+  const handleSortChange = (newSortBy: SortOption) => {
+    console.log('🔄 Changing sort to:', newSortBy);
+    
+    // Устанавливаем порядок по умолчанию в зависимости от типа сортировки
+    let newSortOrder: SortOrder;
+    if (newSortBy === 'totalPrice') {
+      newSortOrder = 'desc'; // От большего к меньшему для суммы
+    } else if (newSortBy === 'date') {
+      newSortOrder = 'desc'; // Сначала новые заказы
+    } else {
+      newSortOrder = 'asc'; // По процессу доставки: Создан → Ожидает курьера → ... → Доставлен → Отменен
+    }
+    
+    console.log('📊 Sort order set to:', newSortOrder);
+    console.log('📦 Orders before sorting:', orders.length, orders.slice(0, 3).map(o => ({ id: o.id, price: o.totalPrice })));
+    
+    // МГНОВЕННО применяем сортировку к текущим заказам
+    const sortedOrders = applySorting(orders, newSortBy, newSortOrder);
+    const sortedAllOrders = applySorting(allOrders, newSortBy, newSortOrder);
+    
+    console.log('📦 Orders after sorting:', sortedOrders.slice(0, 3).map(o => ({ id: o.id, price: o.totalPrice })));
+    
+    // Обновляем состояние ПОСЛЕ сортировки
+    setSortBy(newSortBy);
+    setSortOrder(newSortOrder);
+    setOrders(sortedOrders);
+    setAllOrders(sortedAllOrders);
+    
+    // Принудительно обновляем компонент
+    setForceUpdate(prev => prev + 1);
+    
+    // НЕ вызываем fetchOrders сразу, чтобы не перезаписать нашу сортировку
+    // setTimeout(() => fetchOrders(), 100);
+  };
+
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!selectedOrder) return;
+    
+    try {
+      const token = localStorage.getItem('adminToken');
+      if (!token) {
+        showError('Ошибка авторизации', 'Пожалуйста, войдите в систему заново.');
+        return;
+      }
+
+      const response = await fetch(`/api/admin/orders/${selectedOrder.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: newStatus
+        })
+      });
+
+      if (response.ok) {
+        // Обновляем статус в локальном состоянии
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order.id === selectedOrder.id 
+              ? { ...order, status: newStatus }
+              : order
+          )
+        );
+        setAllOrders(prevOrders => 
+          prevOrders.map(order => 
+            order.id === selectedOrder.id 
+              ? { ...order, status: newStatus }
+              : order
+          )
+        );
+        setShowStatusDropdown(false);
+        showSuccess('Статус обновлен', 'Статус заказа успешно изменен.');
+      } else {
+        const errorData = await response.json();
+        showError('Ошибка обновления', errorData.error || 'Не удалось обновить статус заказа.');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      showError('Ошибка обновления', 'Произошла ошибка при обновлении статуса.');
+    }
+  };
+
   // Обработка кликов вне элементов
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -533,6 +676,10 @@ export default function TrackingPage() {
       if (!target.closest('.date-time-dropdown')) {
         setShowDateTimeFrom(false);
         setShowDateTimeTo(false);
+      }
+      
+      if (!target.closest('.status-dropdown')) {
+        setShowStatusDropdown(false);
       }
     };
 
@@ -755,45 +902,85 @@ export default function TrackingPage() {
             </div>
 
             {/* Controls Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Left Side */}
-              <div className="space-y-3">
-                {/* Sort Controls */}
-                <div className="flex items-center space-x-2">
-                  <div className="min-w-[200px]">
-                    <div className="flex items-center space-x-2 bg-gray-700/30 border border-gray-600/50 rounded-lg px-3 py-3">
-                      <BarsArrowUpIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                      <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value as SortOption)}
-                        className="bg-transparent text-white text-sm font-medium focus:outline-none cursor-pointer min-w-0 flex-1"
-                      >
-                        <option value="newest" className="bg-gray-800">По дате</option>
-                        <option value="totalPrice" className="bg-gray-800">По сумме</option>
-                        <option value="customerName" className="bg-gray-800">По клиенту</option>
-                        <option value="status" className="bg-gray-800">По статусу</option>
-                      </select>
-                      <ChevronUpDownIcon className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                    </div>
+            <div className="space-y-3">
+              {/* Sort Controls - Full Width */}
+              <div className="flex items-center space-x-2">
+                <div className="min-w-[200px]">
+                  <div className="flex items-center space-x-2 bg-gray-700/30 border border-gray-600/50 rounded-lg px-3 py-3">
+                    <BarsArrowUpIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <select
+                      value={sortBy}
+                      onChange={(e) => handleSortChange(e.target.value as SortOption)}
+                      className="bg-transparent text-white text-sm font-medium focus:outline-none cursor-pointer min-w-0 flex-1"
+                    >
+                      <option value="date" className="bg-gray-800">По дате</option>
+                      <option value="totalPrice" className="bg-gray-800">По сумме</option>
+                      <option value="status" className="bg-gray-800">По статусу</option>
+                    </select>
+                    <ChevronUpDownIcon className="h-3 w-3 text-gray-400 flex-shrink-0" />
                   </div>
+                </div>
 
+                <button
+                  onClick={toggleSortOrder}
+                  className={`flex items-center justify-center w-11 h-11 rounded-lg border transition-all duration-200 flex-shrink-0 ${
+                    sortOrder === 'desc'
+                      ? 'bg-orange-500/20 border-orange-500/50 text-orange-300'
+                      : 'bg-gray-700/30 border-gray-600/50 text-gray-400 hover:border-gray-500/50 hover:text-gray-300'
+                  }`}
+                  title={sortOrder === 'desc' ? 'По убыванию' : 'По возрастанию'}
+                >
+                  {sortOrder === 'desc' ? (
+                    <ArrowDownIcon className="h-4 w-4" />
+                  ) : (
+                    <ArrowUpIcon className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+
+              {/* Quick Date Buttons and Clear Filters */}
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                {/* Quick Date Buttons */}
+                <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                    className={`flex items-center justify-center w-11 h-11 rounded-lg border transition-all duration-200 flex-shrink-0 ${
-                      sortOrder === 'desc'
-                        ? 'bg-orange-500/20 border-orange-500/50 text-orange-300'
-                        : 'bg-gray-700/30 border-gray-600/50 text-gray-400 hover:border-gray-500/50 hover:text-gray-300'
-                    }`}
-                    title={sortOrder === 'desc' ? 'По убыванию' : 'По возрастанию'}
+                    onClick={() => setQuickDateRange('yesterday')}
+                    className="px-3 py-1.5 text-xs bg-blue-500/20 border border-blue-500/30 text-blue-300 rounded-lg hover:bg-blue-500/30 transition-all duration-200"
                   >
-                    {sortOrder === 'desc' ? (
-                      <ArrowDownIcon className="h-4 w-4" />
-                    ) : (
-                      <ArrowUpIcon className="h-4 w-4" />
-                    )}
+                    Вчера
+                  </button>
+                  <button
+                    onClick={() => setQuickDateRange('today')}
+                    className="px-3 py-1.5 text-xs bg-orange-500/20 border border-orange-500/30 text-orange-300 rounded-lg hover:bg-orange-500/30 transition-all duration-200"
+                  >
+                    Сегодня
+                  </button>
+                  <button
+                    onClick={() => setQuickDateRange('week')}
+                    className="px-3 py-1.5 text-xs bg-green-500/20 border border-green-500/30 text-green-300 rounded-lg hover:bg-green-500/30 transition-all duration-200"
+                  >
+                    Неделя
+                  </button>
+                  <button
+                    onClick={() => setQuickDateRange('month')}
+                    className="px-3 py-1.5 text-xs bg-purple-500/20 border border-purple-500/30 text-purple-300 rounded-lg hover:bg-purple-500/30 transition-all duration-200"
+                  >
+                    Месяц
                   </button>
                 </div>
 
+                {/* Clear All Filters Button */}
+                {(searchTerm || statusFilter !== 'all' || dateFromFilter || dateToFilter) && (
+                  <button
+                    onClick={clearFilters}
+                    className="px-4 py-1.5 bg-gray-600/30 border border-gray-600/50 rounded-lg text-gray-300 hover:bg-gray-600/50 transition-colors text-xs whitespace-nowrap"
+                  >
+                    Очистить фильтры
+                  </button>
+                )}
+              </div>
+
+              {/* Status Filter and Date Range - Same Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {/* Status Filter */}
                 <div className="min-w-[180px]">
                   <div className="flex items-center space-x-2 bg-gray-700/30 border border-gray-600/50 rounded-lg px-3 py-3">
@@ -804,61 +991,18 @@ export default function TrackingPage() {
                       className="bg-transparent text-white text-sm font-medium focus:outline-none cursor-pointer min-w-0 flex-1"
                     >
                       <option value="all" className="bg-gray-800">Все статусы</option>
-                      <option value="PENDING" className="bg-gray-800">В ожидании</option>
-                      <option value="PAID" className="bg-gray-800">Оплачен</option>
-                      <option value="SHIPPED" className="bg-gray-800">Отправлен</option>
-                      <option value="COMPLETED" className="bg-gray-800">Завершен</option>
-                      <option value="CANCELLED" className="bg-gray-800">Отменен</option>
+                      <option value="CREATED" className="bg-gray-800">Создан</option>
+                      <option value="COURIER_WAIT" className="bg-gray-800">Ожидает курьера</option>
+                      <option value="COURIER_PICKED" className="bg-gray-800">Курьер забрал</option>
+                      <option value="ENROUTE" className="bg-gray-800">В пути</option>
+                      <option value="DELIVERED" className="bg-gray-800">Доставлен</option>
+                      <option value="CANCELED" className="bg-gray-800">Отменен</option>
                     </select>
                     <ChevronUpDownIcon className="h-3 w-3 text-gray-400 flex-shrink-0" />
                   </div>
                 </div>
-              </div>
 
-              {/* Right Side */}
-              <div className="space-y-3">
-                {/* Top Row: Quick Date Buttons and Clear Button */}
-                <div className="flex items-center justify-between gap-3">
-                  {/* Quick Date Range Buttons */}
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => setQuickDateRange('today')}
-                      className="px-3 py-1.5 text-xs bg-orange-500/20 border border-orange-500/30 text-orange-300 rounded-lg hover:bg-orange-500/30 transition-all duration-200"
-                    >
-                      Сегодня
-                    </button>
-                    <button
-                      onClick={() => setQuickDateRange('yesterday')}
-                      className="px-3 py-1.5 text-xs bg-blue-500/20 border border-blue-500/30 text-blue-300 rounded-lg hover:bg-blue-500/30 transition-all duration-200"
-                    >
-                      Вчера
-                    </button>
-                    <button
-                      onClick={() => setQuickDateRange('week')}
-                      className="px-3 py-1.5 text-xs bg-green-500/20 border border-green-500/30 text-green-300 rounded-lg hover:bg-green-500/30 transition-all duration-200"
-                    >
-                      Неделя
-                    </button>
-                    <button
-                      onClick={() => setQuickDateRange('month')}
-                      className="px-3 py-1.5 text-xs bg-purple-500/20 border border-purple-500/30 text-purple-300 rounded-lg hover:bg-purple-500/30 transition-all duration-200"
-                    >
-                      Месяц
-                    </button>
-                  </div>
-
-                  {/* Clear All Filters Button */}
-                  {(searchTerm || statusFilter !== 'all' || dateFromFilter || dateToFilter) && (
-                    <button
-                      onClick={clearFilters}
-                      className="px-4 py-1.5 bg-gray-600/30 border border-gray-600/50 rounded-lg text-gray-300 hover:bg-gray-600/50 transition-colors text-xs whitespace-nowrap"
-                    >
-                      Очистить фильтры
-                    </button>
-                  )}
-                </div>
-
-                {/* Bottom Row: Date Range */}
+                {/* Date Range */}
                 <div className="flex gap-2">
                   {/* From Date */}
                   <div className="flex-1 relative date-time-dropdown">
@@ -882,7 +1026,9 @@ export default function TrackingPage() {
 
                   {/* Dropdown для "От даты" */}
                   {showDateTimeFrom && (
-                    <div className="absolute top-full left-0 mt-2 w-80 bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-5 shadow-2xl ring-1 ring-white/5 z-50 date-time-dropdown">
+                    <div className="fixed inset-0 z-[200] flex items-start justify-center pt-4" onClick={(e) => e.target === e.currentTarget && setShowDateTimeFrom(false)}>
+                      <div className="w-80 bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-5 shadow-2xl ring-1 ring-white/5 date-time-dropdown"
+                           style={{ maxHeight: 'calc(100vh - 100px)', overflowY: 'auto' }}>
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                           <CalendarDaysIcon className="h-4 w-4 text-orange-400" />
@@ -959,6 +1105,7 @@ export default function TrackingPage() {
                           Очистить
                         </button>
                       </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -985,7 +1132,9 @@ export default function TrackingPage() {
 
                   {/* Dropdown для "До даты" */}
                   {showDateTimeTo && (
-                    <div className="absolute top-full left-0 mt-2 w-80 bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-5 shadow-2xl ring-1 ring-white/5 z-50 date-time-dropdown">
+                    <div className="fixed inset-0 z-[200] flex items-start justify-center pt-4" onClick={(e) => e.target === e.currentTarget && setShowDateTimeTo(false)}>
+                      <div className="w-80 bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-5 shadow-2xl ring-1 ring-white/5 date-time-dropdown"
+                           style={{ maxHeight: 'calc(100vh - 100px)', overflowY: 'auto' }}>
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                           <CalendarDaysIcon className="h-4 w-4 text-orange-400" />
@@ -1062,12 +1211,13 @@ export default function TrackingPage() {
                           Очистить
                         </button>
                       </div>
+                      </div>
                     </div>
                   )}
                 </div>
-
                 </div>
               </div>
+
             </div>
 
             {/* Results Info */}
@@ -1119,7 +1269,10 @@ export default function TrackingPage() {
                   >
                     <div className="flex items-center space-x-4">
                       {/* Status Icon */}
-                      <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center">
+                      <div 
+                        className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center cursor-pointer hover:scale-105 transition-transform duration-200"
+                        onClick={(e) => handleStatusClick(e, order)}
+                      >
                         {order.status === 'DELIVERED' ? (
                           <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
                             <CheckCircleIcon className="h-6 w-6 text-white" />
@@ -1166,7 +1319,7 @@ export default function TrackingPage() {
                           )}
                         </h3>
                         <p className="text-gray-400 text-xs font-mono">
-                          #{String(order.orderNumber || order.id).slice(-6)}
+                          #{String(order.orderNumber || order.id).slice(-8)}
                         </p>
                         </div>
 
@@ -1185,9 +1338,9 @@ export default function TrackingPage() {
               </div>
             )}
           </div>
-        </div>
-      </div>
-
+                          </div>
+                        </div>
+                        
       {/* Order Details Modal */}
       {showOrderModal && selectedOrder && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1197,12 +1350,12 @@ export default function TrackingPage() {
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-orange-500/20 rounded-lg">
                   <TruckIcon className="h-5 w-5 text-orange-400" />
-                </div>
+                          </div>
                 <div>
                   <h2 className="text-lg font-semibold text-white">Детали заказа</h2>
-                  <p className="text-gray-300 text-xs font-mono">#{String(selectedOrder.orderNumber || selectedOrder.id).slice(-6)}</p>
-                </div>
-              </div>
+                  <p className="text-gray-300 text-xs font-mono">#{String(selectedOrder.orderNumber || selectedOrder.id).slice(-8)}</p>
+                          </div>
+                          </div>
               <button
                 onClick={closeOrderModal}
                 className="p-2 hover:bg-gray-700/50 rounded-lg transition-colors"
@@ -1247,9 +1400,9 @@ export default function TrackingPage() {
                       <p className="text-xs">Нет товаров в заказе</p>
                     </div>
                   )}
-                </div>
-              </div>
-
+                        </div>
+                      </div>
+                      
               {/* Order Summary */}
               <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
                 <h3 className="text-base font-semibold text-white mb-3 flex items-center">
@@ -1260,100 +1413,175 @@ export default function TrackingPage() {
                   <span className="text-gray-300 text-sm">Общая сумма:</span>
                   <span className="text-yellow-300 font-semibold text-base">
                     {formatPrice(selectedOrder.totalPrice)}
-                  </span>
+                          </span>
                 </div>
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-gray-300 text-sm">Количество товаров:</span>
                   <span className="text-white font-medium text-sm">
                     {selectedOrder.items?.length || 0} шт.
-                  </span>
-                </div>
-              </div>
+                        </span>
+                      </div>
+                    </div>
 
               {/* Delivery Process */}
               <div>
                 <div 
-                  className="flex items-center justify-between cursor-pointer mb-4 p-3 rounded-lg bg-gradient-to-r from-gray-800/40 to-gray-700/40 hover:from-gray-700/50 hover:to-gray-600/50 transition-all duration-300 group"
+                  className="cursor-pointer mb-4 p-4 rounded-lg bg-gray-800/50 hover:bg-gray-800/70 transition-all duration-200 group border border-gray-700/40"
                   onClick={() => setExpandedDelivery(!expandedDelivery)}
                 >
-                  <h3 className="text-lg font-bold text-white flex items-center group-hover:text-purple-200 transition-colors duration-300">
-                    <div className="p-2 bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg mr-3 group-hover:scale-110 transition-transform duration-300">
-                      <MapPinIcon className="h-5 w-5 text-white" />
-                    </div>
-                    Процесс доставки
-                  </h3>
-                  <div className="flex items-center space-x-3">
-                    {selectedOrder.trackingSteps && selectedOrder.trackingSteps.length > 0 && (
-                      <div className="flex items-center space-x-3 px-3 py-2 bg-gradient-to-r from-purple-500/20 to-blue-500/20 rounded-lg border border-purple-400/30">
-                        {getStatusIcon(getCurrentStatus(selectedOrder).status, getCurrentStatus(selectedOrder).completed, getCurrentStatus(selectedOrder).current)}
-                        <span className="text-white text-sm font-semibold">
-                          {getStatusText(getCurrentStatus(selectedOrder).status)}
-                        </span>
+                  {selectedOrder.trackingSteps && selectedOrder.trackingSteps.length > 0 ? (
+                    <div className="space-y-3">
+                      {/* Header with current status */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <div className="relative">
+                            {getStatusIcon(getCurrentStatus(selectedOrder).status, getCurrentStatus(selectedOrder).completed, getCurrentStatus(selectedOrder).current)}
+                          </div>
+                          <div>
+                            <h3 className="text-white font-semibold text-sm">
+                              {getStatusText(getCurrentStatus(selectedOrder).status)}
+                            </h3>
+                            <p className="text-gray-400 text-xs">
+                              Шаг {selectedOrder.trackingSteps.filter(step => step.completed || step.current).length} из {selectedOrder.trackingSteps.length}
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronDownIcon 
+                          className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
+                            expandedDelivery ? 'rotate-180' : ''
+                          }`} 
+                        />
                       </div>
-                    )}
-                    <div className="p-2 bg-gray-700/50 rounded-lg group-hover:bg-purple-500/20 transition-colors duration-300">
+                      
+                      {/* Simple progress bar */}
+                      <div className="w-full bg-gray-700/50 rounded-full h-1">
+                        <div 
+                          className="bg-blue-500 h-1 rounded-full transition-all duration-500"
+                          style={{ 
+                            width: `${(selectedOrder.trackingSteps.filter(step => step.completed || step.current).length / selectedOrder.trackingSteps.length) * 100}%` 
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-white font-semibold text-sm flex items-center">
+                        <TruckIcon className="h-4 w-4 text-gray-400 mr-2" />
+                        Статус доставки
+                      </h3>
                       <ChevronDownIcon 
-                        className={`h-5 w-5 text-gray-400 group-hover:text-purple-300 transition-all duration-300 ${
+                        className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
                           expandedDelivery ? 'rotate-180' : ''
                         }`} 
                       />
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {expandedDelivery && (
-                  <div className="space-y-4 overflow-hidden">
+                  <div className="bg-gray-800/30 rounded-lg p-4 border border-gray-700/30">
                     {selectedOrder.trackingSteps && selectedOrder.trackingSteps.length > 0 ? (
-                      selectedOrder.trackingSteps.map((step, index) => (
-                        <div 
-                          key={index} 
-                          className={`delivery-step flex items-start space-x-4 p-4 rounded-xl transition-all duration-300 transform hover:scale-[1.02] ${
-                            step.current 
-                              ? 'current-step bg-gradient-to-r from-purple-500/30 via-blue-500/20 to-purple-500/30 border-2 border-purple-400/50 shadow-xl' 
-                              : step.completed 
-                                ? 'completed-step bg-gradient-to-r from-gray-800/60 to-gray-700/60 border border-gray-600/40 shadow-md' 
-                                : 'bg-gray-800/30 border border-gray-700/30 opacity-60 hover:opacity-80'
-                          }`}
-                        >
-                          <div className="flex-shrink-0 mt-1">
-                            {getStatusIcon(step.status, step.completed, step.current)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <p className={`text-sm font-semibold ${
+                      <div className="space-y-4">
+                        {selectedOrder.trackingSteps?.map((step, index) => (
+                          <div key={index} className="flex items-start space-x-4">
+                            {/* Timeline icon */}
+                            <div className="relative flex-shrink-0 mt-0.5">
+                              {/* Vertical line */}
+                              {index < selectedOrder.trackingSteps!.length - 1 && (
+                                <div className={`absolute left-1/2 top-8 w-0.5 h-12 -translate-x-1/2 ${
+                                  step.completed || step.current ? 'bg-blue-500/30' : 'bg-gray-600/30'
+                                }`}></div>
+                              )}
+                              
+                              {/* Status icon */}
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
                                 step.current 
-                                  ? 'text-white bg-gradient-to-r from-purple-200 to-blue-200 bg-clip-text text-transparent' 
+                                  ? 'bg-blue-500/20 border-blue-400 shadow-lg shadow-blue-500/30' 
                                   : step.completed 
-                                    ? 'text-gray-200' 
-                                    : 'text-gray-400'
+                                    ? 'bg-green-500/20 border-green-400' 
+                                    : 'bg-gray-600/20 border-gray-500'
                               }`}>
-                                {getStatusText(step.status)}
+                                {step.current && (
+                                  <div className="absolute inset-0 rounded-full bg-blue-400/30 animate-ping"></div>
+                                )}
+                                
+                                {/* Status-specific icons */}
+                                {step.status === 'CREATED' && (
+                                  <ClockIcon className={`h-4 w-4 ${
+                                    step.current ? 'text-blue-400' : step.completed ? 'text-green-400' : 'text-gray-400'
+                                  }`} />
+                                )}
+                                {step.status === 'COURIER_WAIT' && (
+                                  <UserIcon className={`h-4 w-4 ${
+                                    step.current ? 'text-blue-400' : step.completed ? 'text-green-400' : 'text-gray-400'
+                                  }`} />
+                                )}
+                                {step.status === 'COURIER_PICKED' && (
+                                  <CubeIcon className={`h-4 w-4 ${
+                                    step.current ? 'text-blue-400' : step.completed ? 'text-green-400' : 'text-gray-400'
+                                  }`} />
+                                )}
+                                {step.status === 'ENROUTE' && (
+                                  <TruckIcon className={`h-4 w-4 ${
+                                    step.current ? 'text-blue-400' : step.completed ? 'text-green-400' : 'text-gray-400'
+                                  }`} />
+                                )}
+                                {step.status === 'DELIVERED' && (
+                                  <CheckCircleIcon className={`h-4 w-4 ${
+                                    step.current ? 'text-blue-400' : step.completed ? 'text-green-400' : 'text-gray-400'
+                                  }`} />
+                                )}
+                                {step.status === 'CANCELED' && (
+                                  <XMarkIcon className={`h-4 w-4 ${
+                                    step.current ? 'text-blue-400' : step.completed ? 'text-red-400' : 'text-gray-400'
+                                  }`} />
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Content */}
+                            <div className="flex-1 min-w-0 pb-4">
+                              <div className="flex items-center justify-between mb-1">
+                                <h4 className={`font-medium text-sm ${
+                                  step.current 
+                                    ? 'text-white' 
+                                    : step.completed 
+                                      ? 'text-gray-200' 
+                                      : 'text-gray-400'
+                                }`}>
+                                  {getStatusText(step.status)}
+                                </h4>
+                                {step.current && (
+                                  <span className="px-2 py-1 bg-blue-500/20 text-blue-300 text-xs rounded-full border border-blue-500/30">
+                                    Текущий
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <p className={`text-xs leading-relaxed ${
+                                step.current 
+                                  ? 'text-gray-300' 
+                                  : step.completed 
+                                    ? 'text-gray-400' 
+                                    : 'text-gray-500'
+                              }`}>
+                                {step.description}
                               </p>
-                              {step.current && (
-                                <div className="flex items-center space-x-1">
-                                  <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></div>
-                                  <span className="text-xs text-purple-300 font-medium">Активно</span>
+                              
+                              {(step.completed || step.current) && (
+                                <div className="mt-2 text-xs text-gray-500">
+                                  {new Date(step.timestamp).toLocaleDateString('ru-RU', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
                                 </div>
                               )}
                             </div>
-                            <p className={`text-sm mt-2 leading-relaxed ${
-                              step.current 
-                                ? 'text-gray-200' 
-                                : step.completed 
-                                  ? 'text-gray-300' 
-                                  : 'text-gray-500'
-                            }`}>
-                              {step.description}
-                            </p>
-                            {step.completed && (
-                              <div className="mt-2 flex items-center space-x-1">
-                                <CheckCircleIcon className="h-3 w-3 text-green-400" />
-                                <span className="text-xs text-green-400 font-medium">Завершено</span>
-                              </div>
-                            )}
                           </div>
-                        </div>
-                      ))
+                        ))}
+                      </div>
                     ) : (
                       <div className="text-center py-8 text-gray-400">
                         <div className="w-16 h-16 bg-gray-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1363,10 +1591,10 @@ export default function TrackingPage() {
                         <p className="text-xs text-gray-500 mt-1">Попробуйте обновить страницу</p>
                       </div>
                     )}
-                  </div>
-                )}
-              </div>
-            </div>
+                    </div>
+                          )}
+                        </div>
+                        </div>
 
             {/* Footer */}
             <div className="flex items-center justify-end p-4 border-t border-gray-700/50">
@@ -1376,9 +1604,59 @@ export default function TrackingPage() {
               >
                 Закрыть
               </button>
-            </div>
+                      </div>
+                    </div>
+                  </div>
+      )}
+
+      {/* Status Dropdown Modal */}
+      {showStatusDropdown && selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4 border border-gray-600/50">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              Изменить статус заказа
+            </h3>
+            <p className="text-gray-400 text-sm mb-6">
+              Заказ #{selectedOrder.orderNumber.slice(-8)}
+            </p>
+            
+            <div className="space-y-2">
+              {[
+                { value: 'CREATED', label: 'Создан', icon: '🕐', color: 'blue' },
+                { value: 'COURIER_WAIT', label: 'Ожидает курьера', icon: '👤', color: 'yellow' },
+                { value: 'COURIER_PICKED', label: 'Курьер забрал', icon: '🚛', color: 'orange' },
+                { value: 'ENROUTE', label: 'В пути', icon: '🚛', color: 'purple' },
+                { value: 'DELIVERED', label: 'Доставлен', icon: '✅', color: 'green' },
+                { value: 'CANCELED', label: 'Отменен', icon: '❌', color: 'red' }
+              ].map((status) => (
+                <button
+                  key={status.value}
+                  onClick={() => handleStatusChange(status.value)}
+                  className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-colors duration-200 ${
+                    selectedOrder.status === status.value
+                      ? 'bg-gray-700 border border-gray-500'
+                      : 'hover:bg-gray-700/50'
+                  }`}
+                >
+                  <span className="text-lg">{status.icon}</span>
+                  <span className="text-white font-medium">{status.label}</span>
+                  {selectedOrder.status === status.value && (
+                    <span className="ml-auto text-orange-400 text-sm">Текущий</span>
+                  )}
+                </button>
+                ))}
+              </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowStatusDropdown(false)}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors duration-200"
+              >
+                Отмена
+              </button>
           </div>
         </div>
+      </div>
       )}
     </AdminLayout>
   );
