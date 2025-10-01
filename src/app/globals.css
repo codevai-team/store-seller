@@ -198,3 +198,15 @@ input[type="time"] {
 .safe-area-bottom {
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
+
+/* Placeholder styles */
+input::placeholder,
+textarea::placeholder {
+  color: #9CA3AF !important;
+}
+
+/* Dark option styles for select dropdowns */
+option {
+  background-color: #1f2937 !important;
+  color: white !important;
+}

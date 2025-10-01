@@ -277,7 +277,12 @@ export default function Settings() {
                       type={showPasswords.current ? 'text' : 'password'}
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="w-full pl-10 pr-10 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full pl-10 pr-10 py-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      style={{ 
+                        backgroundColor: '#111827',
+                        borderColor: '#374151',
+                        border: '1px solid #374151'
+                      }}
                       placeholder="Введите текущий пароль"
                       required
                     />
@@ -339,7 +344,12 @@ export default function Settings() {
                       type="text"
                       value={newLogin}
                       onChange={(e) => setNewLogin(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      style={{ 
+                        backgroundColor: '#111827',
+                        borderColor: '#374151',
+                        border: '1px solid #374151'
+                      }}
                       placeholder="Введите новый логин (оставьте пустым, если не меняете)"
                     />
                   </div>
@@ -358,7 +368,12 @@ export default function Settings() {
                       type={showPasswords.new ? 'text' : 'password'}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full pl-10 pr-10 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full pl-10 pr-10 py-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      style={{ 
+                        backgroundColor: '#111827',
+                        borderColor: '#374151',
+                        border: '1px solid #374151'
+                      }}
                       placeholder="Введите новый пароль (оставьте пустым, если не меняете)"
                     />
                     <button
@@ -431,7 +446,12 @@ export default function Settings() {
                     type="text"
                     value={telegramBotToken}
                     onChange={(e) => setTelegramBotToken(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    style={{ 
+                      backgroundColor: '#111827',
+                      borderColor: '#374151',
+                      border: '1px solid #374151'
+                    }}
                     placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
                   />
                 </div>
@@ -453,7 +473,12 @@ export default function Settings() {
                     type="text"
                     value={telegramChatId}
                     onChange={(e) => setTelegramChatId(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-3 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    style={{ 
+                      backgroundColor: '#111827',
+                      borderColor: '#374151',
+                      border: '1px solid #374151'
+                    }}
                     placeholder="-1001234567890"
                   />
                 </div>

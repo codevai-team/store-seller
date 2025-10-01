@@ -94,7 +94,7 @@ interface ProductFormData {
   colors: string[];
 }
 
-type SortOption = 'newest' | 'name' | 'price' | 'quantity' | 'category' | 'status';
+type SortOption = 'newest' | 'price';
 type SortOrder = 'asc' | 'desc';
 
 export default function ProductsPage() {
@@ -276,7 +276,7 @@ export default function ProductsPage() {
 
   // Фильтрация товаров
   const filteredProducts = (Array.isArray(products) ? products : []).filter(product => {
-    const matchesSearch = smartSearch(product.name + ' ' + product.description, searchTerm);
+    const matchesSearch = searchTerm === '' || product.name.toLowerCase().includes(searchTerm.toLowerCase());
     
     // Фильтрация по категории с учетом подкатегорий
     let matchesCategory = true;
@@ -317,28 +317,19 @@ export default function ProductsPage() {
       case 'newest':
         comparison = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         break;
-      case 'name':
-        comparison = a.name.localeCompare(b.name, 'ru');
-        break;
       case 'price':
-        comparison = (a.price || a.minPrice) - (b.price || b.minPrice);
-        break;
-      case 'quantity':
-        comparison = (b.totalQuantity || 1) - (a.totalQuantity || 1);
-        break;
-      case 'category':
-        comparison = a.category.name.localeCompare(b.category.name, 'ru');
-        break;
-      case 'status':
-        // Порядок сортировки: ACTIVE -> INACTIVE -> DELETED
-        const statusOrder = { 'ACTIVE': 0, 'INACTIVE': 1, 'DELETED': 2 };
-        comparison = statusOrder[a.status] - statusOrder[b.status];
+        // Сортировка по цене - по умолчанию от большего к меньшему
+        const priceA = a.price || 0;
+        const priceB = b.price || 0;
+        comparison = priceB - priceA; // По умолчанию от большего к меньшему
         break;
       default:
         return 0;
     }
     
-    return sortOrder === 'asc' ? -comparison : comparison;
+    // Если sortOrder === 'asc', инвертируем результат
+    const result = sortOrder === 'asc' ? -comparison : comparison;
+    return result;
   });
 
   // Пагинация
@@ -352,6 +343,31 @@ export default function ProductsPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, categoryFilter, colorFilter, sizeFilter, statusFilter, sortBy, sortOrder]);
+
+  // Функция для изменения типа сортировки с автоматическим порядком
+  const handleSortChange = (newSortBy: SortOption) => {
+    setSortBy(newSortBy);
+    
+    // Автоматически устанавливаем порядок сортировки в зависимости от типа
+    if (newSortBy === 'price') {
+      setSortOrder('desc'); // По цене - по умолчанию от большего к меньшему
+    } else if (newSortBy === 'newest') {
+      setSortOrder('desc'); // По новизне - по умолчанию новые сначала
+    }
+  };
+
+  // Функция для очистки всех фильтров (без сортировки)
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setCategoryFilter('');
+    setColorFilter('');
+    setSizeFilter('');
+    setStatusFilter('');
+    setCurrentPage(1);
+  };
+
+  // Проверяем, есть ли активные фильтры (без учета сортировки)
+  const hasActiveFilters = searchTerm || categoryFilter || colorFilter || sizeFilter || statusFilter;
 
   // Клавиатурные сокращения
   useEffect(() => {
@@ -617,7 +633,7 @@ export default function ProductsPage() {
                     placeholder="Поиск товаров..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="block w-full pl-10 pr-12 h-10 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all duration-200 text-sm sm:text-base"
+                    className="block w-full pl-10 pr-12 h-10 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all duration-200 text-sm sm:text-base"
                   />
                   {searchTerm && (
                     <button
@@ -636,7 +652,7 @@ export default function ProductsPage() {
                 <div className="lg:hidden">
                   <button
                     onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
-                    className="flex items-center justify-center px-3 py-2 h-10 rounded-lg border border-gray-600/50 bg-gray-700/30 text-gray-400 hover:border-gray-500/50 hover:text-gray-300 transition-all duration-200"
+                    className="flex items-center justify-center px-3 py-2 h-10 rounded-lg border border-gray-600/50 text-gray-400 hover:border-gray-500/50 hover:text-gray-300 transition-all duration-200"
                     title="Фильтры и сортировка"
                   >
                     <FunnelIcon className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -645,134 +661,125 @@ export default function ProductsPage() {
 
                 {/* Desktop Sort Controls - Hidden on mobile/tablet */}
                 <div className="hidden lg:flex items-center space-x-2">
-                <div className="min-w-[200px]">
-                  <CustomSelect
-                    value={sortBy}
-                    onChange={(value) => setSortBy(value as SortOption)}
-                    options={[
-                      { value: 'newest', label: 'По новизне' },
-                      { value: 'name', label: 'По названию' },
-                      { value: 'price', label: 'По цене' },
-                      { value: 'quantity', label: 'По количеству' },
-                      { value: 'category', label: 'По категории' },
-                      { value: 'status', label: 'По статусу' }
-                    ]}
-                    icon={<BarsArrowUpIcon className="h-4 w-4 sm:h-5 sm:w-5" />}
-                    className="text-sm"
-                  />
-                </div>
+                 <div className="min-w-[200px]">
+                   <select
+                     value={sortBy}
+                     onChange={(e) => handleSortChange(e.target.value as SortOption)}
+                     className="w-full px-3 py-2 h-10 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50"
+                     style={{ colorScheme: 'dark' }}
+                   >
+                     <option value="newest" className="bg-gray-800 text-white">По новизне</option>
+                     <option value="price" className="bg-gray-800 text-white">По цене</option>
+                   </select>
+                 </div>
 
-                <button
-                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                  className={`flex items-center justify-center px-3 py-2 h-10 rounded-lg border transition-all duration-200 flex-shrink-0 ${
-                    sortOrder === 'desc'
-                      ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
-                      : 'bg-gray-700/30 border-gray-600/50 text-gray-400 hover:border-gray-500/50 hover:text-gray-300'
-                  }`}
-                  title={sortOrder === 'desc' ? 'По убыванию' : 'По возрастанию'}
-                >
-                  {sortOrder === 'desc' ? (
-                    <ArrowDownIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-                  ) : (
-                    <ArrowUpIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-                  )}
-                </button>
+                 <button
+                   onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                   className={`flex items-center justify-center px-3 py-2 h-10 rounded-lg border transition-all duration-200 flex-shrink-0 ${
+                     sortOrder === 'desc'
+                       ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
+                       : 'border-gray-600/50 text-gray-400 hover:border-gray-500/50 hover:text-gray-300'
+                   }`}
+                   title={sortOrder === 'desc' ? 'По убыванию' : 'По возрастанию'}
+                 >
+                   {sortOrder === 'desc' ? (
+                     <ArrowDownIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                   ) : (
+                     <ArrowUpIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                   )}
+                 </button>
+
+                 {/* Clear Filters Button - Only show when filters are active */}
+                 {hasActiveFilters && (
+                   <button
+                     onClick={clearAllFilters}
+                     className="flex items-center justify-center px-3 py-2 h-10 rounded-lg border border-red-500/50 bg-red-500/10 text-red-400 hover:border-red-500/70 hover:text-red-300 hover:bg-red-500/20 transition-all duration-200 flex-shrink-0"
+                     title="Очистить все фильтры"
+                   >
+                     <XMarkIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                   </button>
+                 )}
                 </div>
               </div>
             </div>
 
             {/* Desktop Filters Row - Hidden on mobile/tablet */}
             <div className="hidden lg:flex flex-col lg:flex-row gap-3 overflow-visible">
-              {/* Category Filter */}
-              <div className="flex-1 max-w-full">
-                <CustomSelect
-                  value={categoryFilter}
-                  onChange={(value) => setCategoryFilter(value)}
-                  options={[
-                    { value: '', label: 'Все категории' },
-                    ...categories
-                      .filter(category => !category.parentId)
-                      .flatMap(category => [
-                        { value: category.id, label: category.name },
-                        ...categories
-                          .filter(subcat => subcat.parentId === category.id)
-                          .map(subcategory => ({
-                            value: subcategory.id,
-                            label: `├─ ${subcategory.name}`
-                          }))
-                      ]),
-                    // Orphaned категории
-                    ...categories
-                      .filter(category => category.parentId && !categories.find(c => c.id === category.parentId))
-                      .map(category => ({
-                        value: category.id,
-                        label: `⚠ ${category.name}`
-                      }))
-                  ]}
-                  placeholder="Все категории"
-                  icon={<TagIcon className="h-4 w-4 sm:h-5 sm:w-5" />}
-                  className="text-sm"
-                />
-              </div>
+               {/* Category Filter */}
+               <div className="flex-1 max-w-full">
+                 <select
+                   value={categoryFilter}
+                   onChange={(e) => setCategoryFilter(e.target.value)}
+                   className="w-full px-3 py-2 h-10 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50" style={{ colorScheme: 'dark' }}
+                 >
+                   <option value="">Все категории</option>
+                   {categories
+                     .filter(category => !category.parentId)
+                     .flatMap(category => [
+                       <option key={category.id} value={category.id}>{category.name}</option>,
+                       ...categories
+                         .filter(subcat => subcat.parentId === category.id)
+                         .map(subcategory => (
+                           <option key={subcategory.id} value={subcategory.id}>
+                             ├─ {subcategory.name}
+                           </option>
+                         ))
+                     ])}
+                   {categories
+                     .filter(category => category.parentId && !categories.find(c => c.id === category.parentId))
+                     .map(category => (
+                       <option key={category.id} value={category.id}>
+                         ⚠ {category.name}
+                       </option>
+                     ))}
+                 </select>
+               </div>
 
               {/* Color Filter */}
               <div className="flex-1 max-w-full">
-                <CustomSelect
+                <select
                   value={colorFilter}
-                  onChange={(value) => setColorFilter(value)}
-                  options={[
-                    { value: '', label: 'Все цвета' },
-                    ...colorOptions.map((colorOption, index) => ({
-                      value: colorOption.name,
-                      label: colorOption.name,
-                      icon: (
-                        <div 
-                          className="h-4 w-4 rounded-full border border-gray-400/50" 
-                          style={{ backgroundColor: colorOption.colorCode }}
-                        />
-                      )
-                    }))
-                  ]}
-                  placeholder="Все цвета"
-                  icon={<PhotoIcon className="h-4 w-4 sm:h-5 sm:w-5" />}
-                  className="text-sm"
-                />
+                  onChange={(e) => setColorFilter(e.target.value)}
+                  className="w-full px-3 py-2 h-10 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50" style={{ colorScheme: 'dark' }}
+                >
+                  <option value="">Все цвета</option>
+                  {colorOptions.map((colorOption, index) => (
+                    <option key={index} value={colorOption.name}>
+                      {colorOption.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Size Filter */}
               <div className="flex-1 max-w-full">
-                <CustomSelect
+                <select
                   value={sizeFilter}
-                  onChange={(value) => setSizeFilter(value)}
-                  options={[
-                    { value: '', label: 'Все размеры' },
-                    ...availableSizes.map((size, index) => ({
-                      value: size,
-                      label: size
-                    }))
-                  ]}
-                  placeholder="Все размеры"
-                  icon={<TagIcon className="h-4 w-4 sm:h-5 sm:w-5" />}
-                  className="text-sm"
-                />
+                  onChange={(e) => setSizeFilter(e.target.value)}
+                  className="w-full px-3 py-2 h-10 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50" style={{ colorScheme: 'dark' }}
+                >
+                  <option value="">Все размеры</option>
+                  {availableSizes.map((size, index) => (
+                    <option key={index} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
               </div>
 
 
               {/* Status Filter */}
               <div className="flex-1 max-w-full">
-                <CustomSelect
+                <select
                   value={statusFilter}
-                  onChange={(value) => setStatusFilter(value)}
-                  options={[
-                    { value: '', label: 'Все статусы' },
-                    { value: 'ACTIVE', label: 'Активные' },
-                    { value: 'INACTIVE', label: 'Неактивные' },
-                    { value: 'DELETED', label: 'Удаленные' }
-                  ]}
-                  placeholder="Все статусы"
-                  icon={<CheckIcon className="h-4 w-4 sm:h-5 sm:w-5" />}
-                  className="text-sm"
-                />
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2 h-10 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50" style={{ colorScheme: 'dark' }}
+                >
+                  <option value="">Все статусы</option>
+                  <option value="ACTIVE">Активные</option>
+                  <option value="INACTIVE">Неактивные</option>
+                  <option value="DELETED">Удаленные</option>
+                </select>
               </div>
             </div>
 
@@ -785,134 +792,134 @@ export default function ProductsPage() {
                 <div className="space-y-3">
                   <h3 className="text-sm font-medium text-gray-300">Сортировка</h3>
                   <div className="flex items-center space-x-2">
-                    <div className="flex-1">
-                      <CustomSelect
-                        value={sortBy}
-                        onChange={(value) => setSortBy(value as SortOption)}
-                        options={[
-                          { value: 'newest', label: 'По новизне' },
-                          { value: 'name', label: 'По названию' },
-                          { value: 'price', label: 'По цене' },
-                          { value: 'quantity', label: 'По количеству' },
-                          { value: 'category', label: 'По категории' },
-                          { value: 'status', label: 'По статусу' }
-                        ]}
-                        icon={<BarsArrowUpIcon className="h-4 w-4" />}
-                        className="text-sm"
-                      />
-                    </div>
-                    <button
-                      onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                      className={`flex items-center justify-center px-3 py-2 h-10 rounded-lg border transition-all duration-200 flex-shrink-0 ${
-                        sortOrder === 'desc'
-                          ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
-                          : 'bg-gray-700/30 border-gray-600/50 text-gray-400 hover:border-gray-500/50 hover:text-gray-300'
-                      }`}
-                      title={sortOrder === 'desc' ? 'По убыванию' : 'По возрастанию'}
-                    >
-                      {sortOrder === 'desc' ? (
-                        <ArrowDownIcon className="h-4 w-4" />
-                      ) : (
-                        <ArrowUpIcon className="h-4 w-4" />
-                      )}
-                    </button>
+                     <div className="flex-1">
+                       <select
+                         value={sortBy}
+                         onChange={(e) => handleSortChange(e.target.value as SortOption)}
+                         className="w-full px-3 py-2 h-10 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50" style={{ colorScheme: 'dark' }}
+                       >
+                         <option value="newest">По новизне</option>
+                         <option value="price">По цене</option>
+                       </select>
+                     </div>
+                     <button
+                       onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                       className={`flex items-center justify-center px-3 py-2 h-10 rounded-lg border transition-all duration-200 flex-shrink-0 ${
+                         sortOrder === 'desc'
+                           ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
+                           : 'border-gray-600/50 text-gray-400 hover:border-gray-500/50 hover:text-gray-300'
+                       }`}
+                       title={sortOrder === 'desc' ? 'По убыванию' : 'По возрастанию'}
+                     >
+                       {sortOrder === 'desc' ? (
+                         <ArrowDownIcon className="h-4 w-4" />
+                       ) : (
+                         <ArrowUpIcon className="h-4 w-4" />
+                       )}
+                     </button>
+
+                     {/* Clear Filters Button - Mobile - Only show when filters are active */}
+                     {hasActiveFilters && (
+                       <button
+                         onClick={clearAllFilters}
+                         className="flex items-center justify-center px-3 py-2 h-10 rounded-lg border border-red-500/50 bg-red-500/10 text-red-400 hover:border-red-500/70 hover:text-red-300 hover:bg-red-500/20 transition-all duration-200 flex-shrink-0"
+                         title="Очистить все фильтры"
+                       >
+                         <XMarkIcon className="h-4 w-4" />
+                       </button>
+                     )}
                   </div>
                 </div>
 
                 {/* Mobile Filters */}
                 <div className="space-y-3">
-                  <h3 className="text-sm font-medium text-gray-300">Фильтры</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium text-gray-300">Фильтры</h3>
+                    {hasActiveFilters && (
+                      <button
+                        onClick={clearAllFilters}
+                        className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                      >
+                        Очистить все
+                      </button>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 gap-3">
-                    {/* Category Filter */}
-                    <div>
-                      <CustomSelect
-                        value={categoryFilter}
-                        onChange={(value) => setCategoryFilter(value)}
-                        options={[
-                          { value: '', label: 'Все категории' },
-                          ...categories
-                            .filter(category => !category.parentId)
-                            .flatMap(category => [
-                              { value: category.id, label: category.name },
-                              ...categories
-                                .filter(subcat => subcat.parentId === category.id)
-                                .map(subcategory => ({
-                                  value: subcategory.id,
-                                  label: `├─ ${subcategory.name}`
-                                }))
-                            ]),
-                          // Orphaned категории
-                          ...categories
-                            .filter(category => category.parentId && !categories.find(c => c.id === category.parentId))
-                            .map(category => ({
-                              value: category.id,
-                              label: `⚠ ${category.name}`
-                            }))
-                        ]}
-                        placeholder="Все категории"
-                        icon={<TagIcon className="h-4 w-4" />}
-                        className="text-sm"
-                      />
-                    </div>
+                     {/* Category Filter */}
+                     <div>
+                       <select
+                         value={categoryFilter}
+                         onChange={(e) => setCategoryFilter(e.target.value)}
+                         className="w-full px-3 py-2 h-10 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50" style={{ colorScheme: 'dark' }}
+                       >
+                         <option value="" className="bg-gray-800 text-white">Все категории</option>
+                         {categories
+                           .filter(category => !category.parentId)
+                           .flatMap(category => [
+                             <option key={category.id} value={category.id} className="bg-gray-800 text-white">{category.name}</option>,
+                             ...categories
+                               .filter(subcat => subcat.parentId === category.id)
+                               .map(subcategory => (
+                                 <option key={subcategory.id} value={subcategory.id}>
+                                   ├─ {subcategory.name}
+                                 </option>
+                               ))
+                           ])}
+                         {categories
+                           .filter(category => category.parentId && !categories.find(c => c.id === category.parentId))
+                           .map(category => (
+                             <option key={category.id} value={category.id}>
+                               ⚠ {category.name}
+                             </option>
+                           ))}
+                       </select>
+                     </div>
 
                     {/* Color Filter */}
                     <div>
-                      <CustomSelect
+                      <select
                         value={colorFilter}
-                        onChange={(value) => setColorFilter(value)}
-                        options={[
-                          { value: '', label: 'Все цвета' },
-                          ...colorOptions.map((colorOption, index) => ({
-                            value: colorOption.name,
-                            label: colorOption.name,
-                            icon: (
-                              <div 
-                                className="h-4 w-4 rounded-full border border-gray-400/50" 
-                                style={{ backgroundColor: colorOption.colorCode }}
-                              />
-                            )
-                          }))
-                        ]}
-                        placeholder="Все цвета"
-                        icon={<PhotoIcon className="h-4 w-4" />}
-                        className="text-sm"
-                      />
+                        onChange={(e) => setColorFilter(e.target.value)}
+                        className="w-full px-3 py-2 h-10 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50" style={{ colorScheme: 'dark' }}
+                      >
+                        <option value="">Все цвета</option>
+                        {colorOptions.map((colorOption, index) => (
+                          <option key={index} value={colorOption.name}>
+                            {colorOption.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     {/* Size Filter */}
                     <div>
-                      <CustomSelect
+                      <select
                         value={sizeFilter}
-                        onChange={(value) => setSizeFilter(value)}
-                        options={[
-                          { value: '', label: 'Все размеры' },
-                          ...availableSizes.map((size, index) => ({
-                            value: size,
-                            label: size
-                          }))
-                        ]}
-                        placeholder="Все размеры"
-                        icon={<TagIcon className="h-4 w-4" />}
-                        className="text-sm"
-                      />
+                        onChange={(e) => setSizeFilter(e.target.value)}
+                        className="w-full px-3 py-2 h-10 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50" style={{ colorScheme: 'dark' }}
+                      >
+                        <option value="">Все размеры</option>
+                        {availableSizes.map((size, index) => (
+                          <option key={index} value={size}>
+                            {size}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
 
                     {/* Status Filter */}
                     <div>
-                      <CustomSelect
+                      <select
                         value={statusFilter}
-                        onChange={(value) => setStatusFilter(value)}
-                        options={[
-                          { value: '', label: 'Все статусы' },
-                          { value: 'ACTIVE', label: 'Активные' },
-                          { value: 'INACTIVE', label: 'Неактивные' },
-                          { value: 'DELETED', label: 'Удаленные' }
-                        ]}
-                        placeholder="Все статусы"
-                        icon={<CheckIcon className="h-4 w-4" />}
-                        className="text-sm"
-                      />
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="w-full px-3 py-2 h-10 border border-gray-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50" style={{ colorScheme: 'dark' }}
+                      >
+                        <option value="">Все статусы</option>
+                        <option value="ACTIVE">Активные</option>
+                        <option value="INACTIVE">Неактивные</option>
+                        <option value="DELETED">Удаленные</option>
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -1151,18 +1158,6 @@ export default function ProductsPage() {
                       )}
                     </div>
                   )}
-                  {sortBy === 'name' && (
-                    <div className="flex items-center space-x-1 sm:space-x-2">
-                      <BarsArrowUpIcon className="h-3 w-3 sm:h-4 sm:w-4 text-green-400 flex-shrink-0" />
-                      <span className="text-green-400 font-medium hidden sm:inline">По названию</span>
-                      <span className="text-green-400 font-medium sm:hidden">Названию</span>
-                      {sortOrder === 'desc' ? (
-                        <ArrowDownIcon className="h-2 w-2 sm:h-3 sm:w-3 text-green-400 flex-shrink-0" />
-                      ) : (
-                        <ArrowUpIcon className="h-2 w-2 sm:h-3 sm:w-3 text-green-400 flex-shrink-0" />
-                      )}
-                    </div>
-                  )}
                   {sortBy === 'price' && (
                     <div className="flex items-center space-x-1 sm:space-x-2">
                       <CurrencyDollarIcon className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-400 flex-shrink-0" />
@@ -1172,42 +1167,6 @@ export default function ProductsPage() {
                         <ArrowDownIcon className="h-2 w-2 sm:h-3 sm:w-3 text-yellow-400 flex-shrink-0" />
                       ) : (
                         <ArrowUpIcon className="h-2 w-2 sm:h-3 sm:w-3 text-yellow-400 flex-shrink-0" />
-                      )}
-                    </div>
-                  )}
-                  {sortBy === 'quantity' && (
-                    <div className="flex items-center space-x-1 sm:space-x-2">
-                      <ArchiveBoxIcon className="h-3 w-3 sm:h-4 sm:w-4 text-purple-400 flex-shrink-0" />
-                      <span className="text-purple-400 font-medium hidden sm:inline">По количеству</span>
-                      <span className="text-purple-400 font-medium sm:hidden">Количеству</span>
-                      {sortOrder === 'desc' ? (
-                        <ArrowDownIcon className="h-2 w-2 sm:h-3 sm:w-3 text-purple-400 flex-shrink-0" />
-                      ) : (
-                        <ArrowUpIcon className="h-2 w-2 sm:h-3 sm:w-3 text-purple-400 flex-shrink-0" />
-                      )}
-                    </div>
-                  )}
-                  {sortBy === 'category' && (
-                    <div className="flex items-center space-x-1 sm:space-x-2">
-                      <TagIcon className="h-3 w-3 sm:h-4 sm:w-4 text-orange-400 flex-shrink-0" />
-                      <span className="text-orange-400 font-medium hidden sm:inline">По категории</span>
-                      <span className="text-orange-400 font-medium sm:hidden">Категории</span>
-                      {sortOrder === 'desc' ? (
-                        <ArrowDownIcon className="h-2 w-2 sm:h-3 sm:w-3 text-orange-400 flex-shrink-0" />
-                      ) : (
-                        <ArrowUpIcon className="h-2 w-2 sm:h-3 sm:w-3 text-orange-400 flex-shrink-0" />
-                      )}
-                    </div>
-                  )}
-                  {sortBy === 'status' && (
-                    <div className="flex items-center space-x-1 sm:space-x-2">
-                      <CheckIcon className="h-3 w-3 sm:h-4 sm:w-4 text-pink-400 flex-shrink-0" />
-                      <span className="text-pink-400 font-medium hidden sm:inline">По статусу</span>
-                      <span className="text-pink-400 font-medium sm:hidden">Статус</span>
-                      {sortOrder === 'desc' ? (
-                        <ArrowDownIcon className="h-2 w-2 sm:h-3 sm:w-3 text-pink-400 flex-shrink-0" />
-                      ) : (
-                        <ArrowUpIcon className="h-2 w-2 sm:h-3 sm:w-3 text-pink-400 flex-shrink-0" />
                       )}
                     </div>
                   )}

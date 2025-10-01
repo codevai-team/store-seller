@@ -80,6 +80,104 @@ export default function TrackingPage() {
     .delivery-step {
       animation: fadeIn 0.3s ease-out;
     }
+    
+    /* Mobile overflow prevention */
+    @media (max-width: 640px) {
+      .mobile-container {
+        max-width: 100vw;
+        overflow-x: hidden;
+        padding: 0.5rem;
+      }
+      
+      .mobile-card {
+        max-width: 100%;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+      }
+      
+      /* Compact mobile styles */
+      .mobile-stats-grid {
+        gap: 0.375rem !important;
+      }
+      
+      .mobile-stats-card {
+        padding: 0.5rem !important;
+      }
+      
+      .mobile-stats-text {
+        font-size: 0.75rem !important;
+        line-height: 1rem !important;
+      }
+      
+      .mobile-stats-number {
+        font-size: 1rem !important;
+        line-height: 1.25rem !important;
+        margin-top: 0.25rem !important;
+      }
+      
+      /* Compact date picker modal */
+      .date-time-dropdown {
+        padding: 0.75rem !important;
+        border-radius: 1rem !important;
+        max-width: calc(100vw - 2rem) !important;
+        width: 100% !important;
+      }
+      
+      .date-time-dropdown .grid {
+        grid-template-columns: 1fr !important;
+        gap: 0.5rem !important;
+      }
+      
+      .date-time-dropdown input {
+        padding: 0.375rem 0.5rem !important;
+        font-size: 0.75rem !important;
+        border-radius: 0.5rem !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+      }
+      
+      .date-time-dropdown button {
+        padding: 0.5rem 0.75rem !important;
+        font-size: 0.75rem !important;
+        border-radius: 0.5rem !important;
+      }
+      
+      .date-time-dropdown .flex {
+        flex-direction: column !important;
+        gap: 0.5rem !important;
+      }
+      
+      .date-time-dropdown .flex button {
+        width: 100% !important;
+      }
+      
+      /* Extra small screens */
+      @media (max-width: 375px) {
+        .date-time-dropdown {
+          padding: 0.5rem !important;
+          margin: 0.5rem !important;
+          max-width: calc(100vw - 1.5rem) !important;
+        }
+        
+        .date-time-dropdown input {
+          padding: 0.25rem 0.375rem !important;
+          font-size: 0.7rem !important;
+        }
+        
+        .date-time-dropdown button {
+          padding: 0.375rem 0.5rem !important;
+          font-size: 0.7rem !important;
+        }
+        
+        .date-time-dropdown h3 span {
+          font-size: 0.7rem !important;
+        }
+        
+        .date-time-dropdown label {
+          font-size: 0.65rem !important;
+        }
+      }
+    }
   `;
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,6 +208,9 @@ export default function TrackingPage() {
 
   // Загружаем данные при монтировании компонента
   useEffect(() => {
+    // Убираем клиентскую проверку токена - middleware уже это делает
+    // Если пользователь дошел до этой страницы, значит он авторизован
+    console.log('📱 Tracking page mounted, loading orders...');
     fetchOrders();
   }, []);
 
@@ -136,13 +237,25 @@ export default function TrackingPage() {
     try {
       setLoading(true);
       
-      // Получаем токен из localStorage
-      const token = localStorage.getItem('adminToken');
+      // Получаем токен из localStorage или cookies
+      let token = localStorage.getItem('adminToken');
+      
+      // Если токена нет в localStorage, пробуем получить из cookies
+      if (!token) {
+        const cookies = document.cookie.split(';');
+        const adminTokenCookie = cookies.find(cookie => cookie.trim().startsWith('admin_token='));
+        if (adminTokenCookie) {
+          token = adminTokenCookie.split('=')[1];
+          // Восстанавливаем токен в localStorage
+          localStorage.setItem('adminToken', token);
+          console.log('🔄 Token restored from cookies to localStorage');
+        }
+      }
       
       if (!token) {
-        console.error('Токен не найден в localStorage');
-          showError('Ошибка авторизации', 'Пожалуйста, войдите в систему заново.');
-          window.location.href = '/admin/login';
+        console.error('Токен не найден ни в localStorage, ни в cookies');
+        // Не делаем редирект - middleware должен это обработать
+        showError('Ошибка загрузки', 'Проблема с авторизацией. Попробуйте обновить страницу.');
         return;
       }
       
@@ -260,10 +373,13 @@ export default function TrackingPage() {
         
         // Если ошибка авторизации, возможно токен истек
         if (response.status === 401) {
-            console.log('Токен истек или невалиден, очищаем localStorage и перенаправляем на логин');
+            console.log('Токен истек или невалиден, очищаем localStorage');
             localStorage.removeItem('adminToken');
-            showError('Сессия истекла', 'Пожалуйста, войдите в систему заново.');
-            window.location.href = '/admin/login';
+            showError('Сессия истекла', 'Страница будет обновлена.');
+            // Обновляем страницу вместо редиректа - middleware сам перенаправит
+            setTimeout(() => {
+              window.location.reload();
+            }, 1500);
             return;
         }
       }
@@ -692,17 +808,17 @@ export default function TrackingPage() {
   return (
     <AdminLayout>
       <style dangerouslySetInnerHTML={{ __html: deliveryAnimations }} />
-      <div className="space-y-6">
+      <div className="space-y-3 sm:space-y-4 w-full max-w-full overflow-hidden mobile-container">
         {/* Header */}
-        <div className="bg-gradient-to-r from-gray-800/60 to-gray-700/60 backdrop-blur-sm rounded-xl p-8 border border-gray-600/50">
+        <div className="bg-gradient-to-r from-gray-800/60 to-gray-700/60 backdrop-blur-sm rounded-xl p-3 sm:p-4 lg:p-6 border border-gray-600/50">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-gradient-to-r from-orange-500 to-red-600 rounded-xl">
-                <TruckIcon className="h-8 w-8 text-white" />
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <div className="p-2 sm:p-3 bg-gradient-to-r from-orange-500 to-red-600 rounded-lg sm:rounded-xl">
+                <TruckIcon className="h-5 w-5 sm:h-6 sm:w-6 lg:h-8 lg:w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold text-white mb-2">Трекинг доставки</h1>
-                <p className="text-gray-300 text-lg">Отслеживания заказов</p>
+                <h1 className="text-xl sm:text-2xl lg:text-4xl font-bold text-white mb-1 sm:mb-2">Трекинг доставки</h1>
+                <p className="text-gray-300 text-sm sm:text-base lg:text-lg">Отслеживания заказов</p>
               </div>
             </div>
 
@@ -753,7 +869,7 @@ export default function TrackingPage() {
                     <span className="text-gray-400 text-sm whitespace-nowrap">В пути:</span>
                   </div>
                   <span className="text-white font-semibold text-sm w-8 text-right">
-                    {allOrders.filter(order => order.status === 'SHIPPED').length}
+                    {allOrders.filter(order => order.status === 'ENROUTE').length}
                   </span>
                 </div>
 
@@ -775,7 +891,7 @@ export default function TrackingPage() {
                     <span className="text-gray-400 text-sm whitespace-nowrap">Отменен:</span>
                   </div>
                   <span className="text-white font-semibold text-sm w-8 text-right">
-                    {allOrders.filter(order => order.status === 'CANCELLED').length}
+                    {allOrders.filter(order => order.status === 'CANCELED').length}
                   </span>
                 </div>
               </div>
@@ -793,79 +909,79 @@ export default function TrackingPage() {
           </div>
 
           {/* Mobile Statistics */}
-          <div className="lg:hidden mt-8 pt-6 border-t border-gray-600/50">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div className="lg:hidden mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-600/50 w-full">
+            <div className="grid grid-cols-2 gap-1.5 sm:gap-2 w-full mobile-stats-grid">
               {/* Created Orders */}
-              <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
-                <div className="flex items-center space-x-2">
-                  <ClockIcon className="w-4 h-4 text-blue-500" />
-                  <span className="text-sm text-gray-400">Созданы</span>
+              <div className="bg-gray-700/30 rounded-lg p-2 sm:p-3 border border-gray-600/30 mobile-stats-card">
+                <div className="flex items-center space-x-1 sm:space-x-1.5">
+                  <ClockIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-500 flex-shrink-0" />
+                  <span className="text-xs text-gray-400 truncate mobile-stats-text">Созданы</span>
                 </div>
-                <div className="text-xl font-bold text-white mt-2">
+                <div className="text-base sm:text-lg font-bold text-white mt-1 mobile-stats-number">
                   {allOrders.filter(order => order.status === 'CREATED').length}
                 </div>
               </div>
 
               {/* Waiting for Courier */}
-              <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
-                <div className="flex items-center space-x-2">
-                  <UserIcon className="w-4 h-4 text-yellow-500" />
-                  <span className="text-sm text-gray-400">Ожидает курьера</span>
+              <div className="bg-gray-700/30 rounded-lg p-2 sm:p-3 border border-gray-600/30 mobile-stats-card">
+                <div className="flex items-center space-x-1 sm:space-x-1.5">
+                  <UserIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-yellow-500 flex-shrink-0" />
+                  <span className="text-xs text-gray-400 truncate mobile-stats-text">Ожидает курьера</span>
                 </div>
-                <div className="text-xl font-bold text-white mt-2">
+                <div className="text-base sm:text-lg font-bold text-white mt-1 mobile-stats-number">
                   {allOrders.filter(order => order.status === 'COURIER_WAIT').length}
                 </div>
               </div>
 
               {/* In Transit */}
-              <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
-                <div className="flex items-center space-x-2">
-                  <MapPinIcon className="w-4 h-4 text-purple-500" />
-                  <span className="text-sm text-gray-400">В пути</span>
+              <div className="bg-gray-700/30 rounded-lg p-2 sm:p-3 border border-gray-600/30 mobile-stats-card">
+                <div className="flex items-center space-x-1 sm:space-x-1.5">
+                  <MapPinIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-purple-500 flex-shrink-0" />
+                  <span className="text-xs text-gray-400 truncate mobile-stats-text">В пути</span>
                 </div>
-                <div className="text-xl font-bold text-white mt-2">
-                  {allOrders.filter(order => order.status === 'SHIPPED').length}
+                <div className="text-base sm:text-lg font-bold text-white mt-1 mobile-stats-number">
+                  {allOrders.filter(order => order.status === 'ENROUTE').length}
                 </div>
               </div>
 
               {/* Courier Picked */}
-              <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
-                <div className="flex items-center space-x-2">
-                  <TruckIcon className="w-4 h-4 text-orange-400" />
-                  <span className="text-sm text-gray-400">Курьер забрал</span>
+              <div className="bg-gray-700/30 rounded-lg p-2 sm:p-3 border border-gray-600/30 mobile-stats-card">
+                <div className="flex items-center space-x-1 sm:space-x-1.5">
+                  <TruckIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-400 flex-shrink-0" />
+                  <span className="text-xs text-gray-400 truncate mobile-stats-text">Курьер забрал</span>
                 </div>
-                <div className="text-xl font-bold text-white mt-2">
+                <div className="text-base sm:text-lg font-bold text-white mt-1 mobile-stats-number">
                   {allOrders.filter(order => order.status === 'COURIER_PICKED').length}
                 </div>
               </div>
 
               {/* Delivered */}
-              <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
-                <div className="flex items-center space-x-2">
-                  <CheckCircleIcon className="w-4 h-4 text-green-500" />
-                  <span className="text-sm text-gray-400">Доставлен</span>
+              <div className="bg-gray-700/30 rounded-lg p-2 sm:p-3 border border-gray-600/30 mobile-stats-card">
+                <div className="flex items-center space-x-1 sm:space-x-1.5">
+                  <CheckCircleIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-500 flex-shrink-0" />
+                  <span className="text-xs text-gray-400 truncate mobile-stats-text">Доставлен</span>
                 </div>
-                <div className="text-xl font-bold text-white mt-2">
+                <div className="text-base sm:text-lg font-bold text-white mt-1 mobile-stats-number">
                   {allOrders.filter(order => order.status === 'DELIVERED').length}
                 </div>
               </div>
 
               {/* Cancelled */}
-              <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600/30">
-                <div className="flex items-center space-x-2">
-                  <XMarkIcon className="w-4 h-4 text-red-500" />
-                  <span className="text-sm text-gray-400">Отменен</span>
+              <div className="bg-gray-700/30 rounded-lg p-2 sm:p-3 border border-gray-600/30 mobile-stats-card">
+                <div className="flex items-center space-x-1 sm:space-x-1.5">
+                  <XMarkIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-red-500 flex-shrink-0" />
+                  <span className="text-xs text-gray-400 truncate mobile-stats-text">Отменен</span>
                 </div>
-                <div className="text-xl font-bold text-white mt-2">
-                  {allOrders.filter(order => order.status === 'CANCELLED').length}
+                <div className="text-base sm:text-lg font-bold text-white mt-1 mobile-stats-number">
+                  {allOrders.filter(order => order.status === 'CANCELED').length}
                 </div>
               </div>
 
               {/* Total */}
-              <div className="bg-orange-500/20 rounded-lg p-4 border border-orange-500/30 col-span-2 sm:col-span-1">
+              <div className="bg-orange-500/20 rounded-lg p-2 sm:p-3 border border-orange-500/30 col-span-2 mobile-stats-card">
                 <div className="text-center">
-                  <div className="text-sm text-orange-300">Всего</div>
-                  <div className="text-2xl font-bold text-white mt-1">
+                  <div className="text-xs text-orange-300 mobile-stats-text">Всего</div>
+                  <div className="text-lg sm:text-xl font-bold text-white mt-1 mobile-stats-number">
                     {allOrders.length}
                   </div>
                 </div>
@@ -875,8 +991,8 @@ export default function TrackingPage() {
         </div>
 
         {/* Filters and Search */}
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-gray-700/50">
-          <div className="space-y-4">
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-2 sm:p-3 md:p-4 border border-gray-700/50">
+          <div className="space-y-3">
             {/* Search - Full width on mobile */}
             <div className="w-full">
               <div className="relative">
@@ -888,7 +1004,7 @@ export default function TrackingPage() {
                    placeholder="Поиск по названию товара..."
                    value={searchTerm}
                    onChange={(e) => setSearchTerm(e.target.value)}
-                   className="block w-full pl-10 pr-12 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-200 text-sm sm:text-base"
+                   className="block w-full pl-10 pr-12 py-2 sm:py-2.5 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-200 text-sm sm:text-base"
                  />
                 {searchTerm && (
                   <button
@@ -906,16 +1022,17 @@ export default function TrackingPage() {
               {/* Sort Controls - Full Width */}
               <div className="flex items-center space-x-2">
                 <div className="min-w-[200px]">
-                  <div className="flex items-center space-x-2 bg-gray-700/30 border border-gray-600/50 rounded-lg px-3 py-3">
+                  <div className="flex items-center space-x-2 border border-gray-600/50 rounded-lg px-3 py-3">
                     <BarsArrowUpIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
                     <select
                       value={sortBy}
                       onChange={(e) => handleSortChange(e.target.value as SortOption)}
                       className="bg-transparent text-white text-sm font-medium focus:outline-none cursor-pointer min-w-0 flex-1"
+                      style={{ colorScheme: 'dark' }}
                     >
-                      <option value="date" className="bg-gray-800">По дате</option>
-                      <option value="totalPrice" className="bg-gray-800">По сумме</option>
-                      <option value="status" className="bg-gray-800">По статусу</option>
+                      <option value="date" className="bg-gray-800 text-white">По дате</option>
+                      <option value="totalPrice" className="bg-gray-800 text-white">По сумме</option>
+                      <option value="status" className="bg-gray-800 text-white">По статусу</option>
                     </select>
                     <ChevronUpDownIcon className="h-3 w-3 text-gray-400 flex-shrink-0" />
                   </div>
@@ -926,7 +1043,7 @@ export default function TrackingPage() {
                   className={`flex items-center justify-center w-11 h-11 rounded-lg border transition-all duration-200 flex-shrink-0 ${
                     sortOrder === 'desc'
                       ? 'bg-orange-500/20 border-orange-500/50 text-orange-300'
-                      : 'bg-gray-700/30 border-gray-600/50 text-gray-400 hover:border-gray-500/50 hover:text-gray-300'
+                      : 'border-gray-600/50 text-gray-400 hover:border-gray-500/50 hover:text-gray-300'
                   }`}
                   title={sortOrder === 'desc' ? 'По убыванию' : 'По возрастанию'}
                 >
@@ -980,7 +1097,7 @@ export default function TrackingPage() {
               </div>
 
               {/* Status Filter and Date Range - Same Row */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* Status Filter */}
                 <div className="min-w-[180px]">
                   <div className="flex items-center space-x-2 bg-gray-700/30 border border-gray-600/50 rounded-lg px-3 py-3">
@@ -1026,25 +1143,25 @@ export default function TrackingPage() {
 
                   {/* Dropdown для "От даты" */}
                   {showDateTimeFrom && (
-                    <div className="fixed inset-0 z-[200] flex items-start justify-center pt-4" onClick={(e) => e.target === e.currentTarget && setShowDateTimeFrom(false)}>
-                      <div className="w-80 bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-5 shadow-2xl ring-1 ring-white/5 date-time-dropdown"
+                    <div className="fixed inset-0 z-[200] flex items-start justify-center pt-4 px-4" onClick={(e) => e.target === e.currentTarget && setShowDateTimeFrom(false)}>
+                      <div className="w-full max-w-xs sm:max-w-sm md:w-80 bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-3 sm:p-4 md:p-5 shadow-2xl ring-1 ring-white/5 date-time-dropdown"
                            style={{ maxHeight: 'calc(100vh - 100px)', overflowY: 'auto' }}>
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                          <CalendarDaysIcon className="h-4 w-4 text-orange-400" />
-                          Выберите дату и время
+                      <div className="flex items-center justify-between mb-3 sm:mb-4">
+                        <h3 className="text-sm font-semibold text-white flex items-center gap-1.5 sm:gap-2">
+                          <CalendarDaysIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-400" />
+                          <span className="text-xs sm:text-sm">Выберите дату и время</span>
                         </h3>
                         <button
                           onClick={() => setShowDateTimeFrom(false)}
-                          className="p-1 hover:bg-gray-700/50 rounded-lg transition-colors"
+                          className="p-0.5 sm:p-1 hover:bg-gray-700/50 rounded-lg transition-colors"
                         >
-                          <XMarkIcon className="h-4 w-4 text-gray-400" />
+                          <XMarkIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" />
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4">
                         <div>
-                          <label className="block text-xs font-medium text-gray-300 mb-2">Дата</label>
+                          <label className="block text-xs font-medium text-gray-300 mb-1.5 sm:mb-2">Дата</label>
                           <div 
                             className="relative cursor-pointer"
                             onClick={() => {
@@ -1059,13 +1176,13 @@ export default function TrackingPage() {
                               type="date"
                               value={dateFromFilter}
                               onChange={(e) => setDateFromFilter(e.target.value)}
-                              className="w-full px-3 py-2.5 bg-gray-800/60 border border-gray-600/50 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-200 cursor-pointer hover:bg-gray-800/80"
+                              className="w-full px-2 py-1.5 sm:px-3 sm:py-2.5 border border-gray-600/50 rounded-lg sm:rounded-xl text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-200 cursor-pointer hover:border-gray-500/50"
                               style={{ colorScheme: 'dark' }}
                             />
                           </div>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-300 mb-2">Время</label>
+                          <label className="block text-xs font-medium text-gray-300 mb-1.5 sm:mb-2">Время</label>
                           <div 
                             className="relative cursor-pointer"
                             onClick={() => {
@@ -1080,17 +1197,17 @@ export default function TrackingPage() {
                               type="time"
                               value={timeFromFilter}
                               onChange={(e) => setTimeFromFilter(e.target.value)}
-                              className="w-full px-3 py-2.5 bg-gray-800/60 border border-gray-600/50 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-200 cursor-pointer hover:bg-gray-800/80"
+                              className="w-full px-2 py-1.5 sm:px-3 sm:py-2.5 border border-gray-600/50 rounded-lg sm:rounded-xl text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-200 cursor-pointer hover:border-gray-500/50"
                               style={{ colorScheme: 'dark' }}
                             />
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex space-x-2">
+                      <div className="flex flex-col sm:flex-row space-y-1.5 sm:space-y-0 sm:space-x-2">
                         <button
                           onClick={() => setShowDateTimeFrom(false)}
-                          className="flex-1 px-4 py-2.5 bg-gradient-to-r from-orange-600/80 to-red-600/80 hover:from-orange-600 hover:to-red-600 text-white text-sm font-medium rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
+                          className="flex-1 px-3 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-r from-orange-600/80 to-red-600/80 hover:from-orange-600 hover:to-red-600 text-white text-xs sm:text-sm font-medium rounded-lg sm:rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
                         >
                           Применить
                         </button>
@@ -1100,7 +1217,7 @@ export default function TrackingPage() {
                             setTimeFromFilter('00:00');
                             setShowDateTimeFrom(false);
                           }}
-                          className="px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-sm font-medium rounded-xl transition-all duration-200 border border-red-500/30"
+                          className="px-3 py-2 sm:px-4 sm:py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs sm:text-sm font-medium rounded-lg sm:rounded-xl transition-all duration-200 border border-red-500/30"
                         >
                           Очистить
                         </button>
@@ -1132,25 +1249,25 @@ export default function TrackingPage() {
 
                   {/* Dropdown для "До даты" */}
                   {showDateTimeTo && (
-                    <div className="fixed inset-0 z-[200] flex items-start justify-center pt-4" onClick={(e) => e.target === e.currentTarget && setShowDateTimeTo(false)}>
-                      <div className="w-80 bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-5 shadow-2xl ring-1 ring-white/5 date-time-dropdown"
+                    <div className="fixed inset-0 z-[200] flex items-start justify-center pt-4 px-4" onClick={(e) => e.target === e.currentTarget && setShowDateTimeTo(false)}>
+                      <div className="w-full max-w-xs sm:max-w-sm md:w-80 bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-3 sm:p-4 md:p-5 shadow-2xl ring-1 ring-white/5 date-time-dropdown"
                            style={{ maxHeight: 'calc(100vh - 100px)', overflowY: 'auto' }}>
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                          <CalendarDaysIcon className="h-4 w-4 text-orange-400" />
-                          Выберите дату и время
+                      <div className="flex items-center justify-between mb-3 sm:mb-4">
+                        <h3 className="text-sm font-semibold text-white flex items-center gap-1.5 sm:gap-2">
+                          <CalendarDaysIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-400" />
+                          <span className="text-xs sm:text-sm">Выберите дату и время</span>
                         </h3>
                         <button
                           onClick={() => setShowDateTimeTo(false)}
-                          className="p-1 hover:bg-gray-700/50 rounded-lg transition-colors"
+                          className="p-0.5 sm:p-1 hover:bg-gray-700/50 rounded-lg transition-colors"
                         >
-                          <XMarkIcon className="h-4 w-4 text-gray-400" />
+                          <XMarkIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" />
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4">
                         <div>
-                          <label className="block text-xs font-medium text-gray-300 mb-2">Дата</label>
+                          <label className="block text-xs font-medium text-gray-300 mb-1.5 sm:mb-2">Дата</label>
                           <div 
                             className="relative cursor-pointer"
                             onClick={() => {
@@ -1165,13 +1282,13 @@ export default function TrackingPage() {
                               type="date"
                               value={dateToFilter}
                               onChange={(e) => setDateToFilter(e.target.value)}
-                              className="w-full px-3 py-2.5 bg-gray-800/60 border border-gray-600/50 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-200 cursor-pointer hover:bg-gray-800/80"
+                              className="w-full px-2 py-1.5 sm:px-3 sm:py-2.5 border border-gray-600/50 rounded-lg sm:rounded-xl text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-200 cursor-pointer hover:border-gray-500/50"
                               style={{ colorScheme: 'dark' }}
                             />
                           </div>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-300 mb-2">Время</label>
+                          <label className="block text-xs font-medium text-gray-300 mb-1.5 sm:mb-2">Время</label>
                           <div 
                             className="relative cursor-pointer"
                             onClick={() => {
@@ -1186,17 +1303,17 @@ export default function TrackingPage() {
                               type="time"
                               value={timeToFilter}
                               onChange={(e) => setTimeToFilter(e.target.value)}
-                              className="w-full px-3 py-2.5 bg-gray-800/60 border border-gray-600/50 rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-200 cursor-pointer hover:bg-gray-800/80"
+                              className="w-full px-2 py-1.5 sm:px-3 sm:py-2.5 border border-gray-600/50 rounded-lg sm:rounded-xl text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-200 cursor-pointer hover:border-gray-500/50"
                               style={{ colorScheme: 'dark' }}
                             />
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex space-x-2">
+                      <div className="flex flex-col sm:flex-row space-y-1.5 sm:space-y-0 sm:space-x-2">
                         <button
                           onClick={() => setShowDateTimeTo(false)}
-                          className="flex-1 px-4 py-2.5 bg-gradient-to-r from-orange-600/80 to-red-600/80 hover:from-orange-600 hover:to-red-600 text-white text-sm font-medium rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
+                          className="flex-1 px-3 py-2 sm:px-4 sm:py-2.5 bg-gradient-to-r from-orange-600/80 to-red-600/80 hover:from-orange-600 hover:to-red-600 text-white text-xs sm:text-sm font-medium rounded-lg sm:rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
                         >
                           Применить
                         </button>
@@ -1206,7 +1323,7 @@ export default function TrackingPage() {
                             setTimeToFilter('23:59');
                             setShowDateTimeTo(false);
                           }}
-                          className="px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-sm font-medium rounded-xl transition-all duration-200 border border-red-500/30"
+                          className="px-3 py-2 sm:px-4 sm:py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs sm:text-sm font-medium rounded-lg sm:rounded-xl transition-all duration-200 border border-red-500/30"
                         >
                           Очистить
                         </button>
@@ -1241,8 +1358,8 @@ export default function TrackingPage() {
         </div>
 
         {/* Content */}
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700/50">
-          <div className="p-6">
+        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl border border-gray-700/50 overflow-hidden">
+          <div className="p-2 sm:p-3 lg:p-4 w-full">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-16">
                 <div className="relative">
@@ -1260,53 +1377,53 @@ export default function TrackingPage() {
                 <p className="text-gray-500">У вас пока нет заказов для отслеживания</p>
               </div>
             ) : (
-              <div className="grid gap-3">
+              <div className="space-y-1.5 sm:space-y-2">
                 {orders.map((order) => (
                   <div
                     key={order.id}
                     onClick={() => openOrderModal(order)}
-                    className="bg-gradient-to-r from-gray-800/60 to-gray-700/40 backdrop-blur-sm rounded-lg border border-gray-700/40 p-4 hover:border-orange-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-orange-500/5 group cursor-pointer"
+                    className="w-full bg-gradient-to-r from-gray-800/60 to-gray-700/40 backdrop-blur-sm rounded-lg border border-gray-700/40 p-3 hover:border-orange-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-orange-500/5 group cursor-pointer overflow-hidden mobile-card"
                   >
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center gap-2 sm:gap-3 w-full">
                       {/* Status Icon */}
                       <div 
-                        className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center cursor-pointer hover:scale-105 transition-transform duration-200"
+                        className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-lg sm:rounded-xl flex items-center justify-center cursor-pointer hover:scale-105 transition-transform duration-200"
                         onClick={(e) => handleStatusClick(e, order)}
                       >
                         {order.status === 'DELIVERED' ? (
-                          <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center shadow-lg">
-                            <CheckCircleIcon className="h-6 w-6 text-white" />
+                          <div className="w-full h-full bg-green-500 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg">
+                            <CheckCircleIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
                           </div>
                         ) : order.status === 'COURIER_PICKED' ? (
-                          <div className="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                            <TruckIcon className="h-6 w-6 text-white" />
+                          <div className="w-full h-full bg-orange-500 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg">
+                            <TruckIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
                           </div>
                         ) : order.status === 'CREATED' ? (
-                          <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg">
-                            <ClockIcon className="h-6 w-6 text-white" />
+                          <div className="w-full h-full bg-blue-500 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg">
+                            <ClockIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
                           </div>
                         ) : order.status === 'COURIER_WAIT' ? (
-                          <div className="w-12 h-12 bg-yellow-500 rounded-xl flex items-center justify-center shadow-lg">
-                            <UserIcon className="h-6 w-6 text-white" />
+                          <div className="w-full h-full bg-yellow-500 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg">
+                            <UserIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
                           </div>
                         ) : order.status === 'ENROUTE' ? (
-                          <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center shadow-lg">
-                            <TruckIcon className="h-6 w-6 text-white" />
+                          <div className="w-full h-full bg-purple-500 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg">
+                            <TruckIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
                           </div>
                         ) : order.status === 'CANCELED' ? (
-                          <div className="w-12 h-12 bg-red-500 rounded-xl flex items-center justify-center shadow-lg">
-                            <XMarkIcon className="h-6 w-6 text-white" />
+                          <div className="w-full h-full bg-red-500 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg">
+                            <XMarkIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
                           </div>
                         ) : (
-                          <div className="w-12 h-12 bg-gray-500 rounded-xl flex items-center justify-center shadow-lg">
-                            <ShoppingBagIcon className="h-6 w-6 text-white" />
+                          <div className="w-full h-full bg-gray-500 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg">
+                            <ShoppingBagIcon className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-white" />
                           </div>
                         )}
                       </div>
 
                       {/* Product Info */}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-white text-sm font-semibold truncate mb-1">
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <h3 className="text-white text-xs sm:text-sm font-semibold truncate mb-1">
                           {order.items && order.items.length > 0 ? (
                             order.items.map((item, index) => (
                               <span key={item.id}>
@@ -1318,17 +1435,17 @@ export default function TrackingPage() {
                             <span className="text-gray-400">Нет товаров</span>
                           )}
                         </h3>
-                        <p className="text-gray-400 text-xs font-mono">
+                        <p className="text-gray-400 text-xs font-mono truncate">
                           #{String(order.orderNumber || order.id).slice(-8)}
                         </p>
                         </div>
 
                       {/* Price and Quantity */}
-                      <div className="flex-shrink-0 text-right">
-                        <p className="text-yellow-300 text-sm font-semibold">
+                      <div className="flex-shrink-0 text-right min-w-0">
+                        <p className="text-yellow-300 text-xs sm:text-sm font-semibold truncate">
                           {formatPrice(order.totalPrice)}
                         </p>
-                        <p className="text-gray-400 text-xs">
+                        <p className="text-gray-400 text-xs truncate">
                           {order.items?.length || 0} шт.
                         </p>
                       </div>
@@ -1661,3 +1778,4 @@ export default function TrackingPage() {
     </AdminLayout>
   );
 }
+

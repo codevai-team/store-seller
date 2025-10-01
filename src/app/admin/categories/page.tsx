@@ -398,7 +398,7 @@ export default function CategoriesPage() {
 
   // Фильтрация категорий
   const filteredCategories = categories.filter(category => {
-    const matchesSearch = smartSearch(category.name, searchTerm);
+    const matchesSearch = searchTerm === '' || category.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = !showOnlyParents || !category.parentId;
     return matchesSearch && matchesFilter;
   });
@@ -886,16 +886,17 @@ export default function CategoriesPage() {
                 {/* Desktop Sort Controls - Hidden on mobile/tablet */}
                 <div className="hidden lg:flex items-center space-x-2">
                   <div className="min-w-[200px]">
-                    <div className="flex items-center space-x-2 sm:space-x-3 bg-gray-700/30 border border-gray-600/50 rounded-lg px-3 sm:px-4 py-2 h-10">
+                    <div className="flex items-center space-x-2 sm:space-x-3 border border-gray-600/50 rounded-lg px-3 sm:px-4 py-2 h-10">
                       <BarsArrowUpIcon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as SortOption)}
                         className="bg-transparent text-white text-sm font-medium focus:outline-none cursor-pointer min-w-0 flex-1"
+                        style={{ colorScheme: 'dark' }}
                       >
-                        <option value="popular" className="bg-gray-800">По популярности</option>
-                        <option value="alphabetical" className="bg-gray-800">По алфавиту</option>
-                        <option value="products" className="bg-gray-800">По товарам</option>
+                        <option value="popular" className="bg-gray-800 text-white">По популярности</option>
+                        <option value="alphabetical" className="bg-gray-800 text-white">По алфавиту</option>
+                        <option value="products" className="bg-gray-800 text-white">По товарам</option>
                       </select>
                       <ChevronUpDownIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 flex-shrink-0" />
                     </div>
@@ -906,7 +907,7 @@ export default function CategoriesPage() {
                     className={`flex items-center justify-center px-3 py-2 h-10 rounded-lg border transition-all duration-200 flex-shrink-0 ${
                       sortOrder === 'desc'
                         ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
-                        : 'bg-gray-700/30 border-gray-600/50 text-gray-400 hover:border-gray-500/50 hover:text-gray-300'
+                        : 'border-gray-600/50 text-gray-400 hover:border-gray-500/50 hover:text-gray-300'
                     }`}
                     title={sortOrder === 'desc' ? 'По убыванию' : 'По возрастанию'}
                   >
@@ -928,7 +929,7 @@ export default function CategoriesPage() {
                 className={`flex items-center justify-center space-x-2 sm:space-x-3 px-3 sm:px-4 py-3 rounded-lg border transition-all duration-200 ${
                   showOnlyParents
                     ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
-                    : 'bg-gray-700/30 border-gray-600/50 text-gray-300 hover:border-gray-500/50'
+                    : 'border-gray-600/50 text-gray-300 hover:border-gray-500/50'
                 }`}
               >
                 <FunnelIcon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
@@ -955,16 +956,17 @@ export default function CategoriesPage() {
                   <h3 className="text-sm font-medium text-gray-300">Сортировка</h3>
                   <div className="flex items-center space-x-2">
                     <div className="flex-1">
-                      <div className="flex items-center space-x-2 sm:space-x-3 bg-gray-700/30 border border-gray-600/50 rounded-lg px-3 sm:px-4 py-2 h-10">
+                      <div className="flex items-center space-x-2 sm:space-x-3 border border-gray-600/50 rounded-lg px-3 sm:px-4 py-2 h-10">
                         <BarsArrowUpIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
                         <select
                           value={sortBy}
                           onChange={(e) => setSortBy(e.target.value as SortOption)}
                           className="bg-transparent text-white text-sm font-medium focus:outline-none cursor-pointer min-w-0 flex-1"
+                          style={{ colorScheme: 'dark' }}
                         >
-                          <option value="popular" className="bg-gray-800">По популярности</option>
-                          <option value="alphabetical" className="bg-gray-800">По алфавиту</option>
-                          <option value="products" className="bg-gray-800">По товарам</option>
+                          <option value="popular" className="bg-gray-800 text-white">По популярности</option>
+                          <option value="alphabetical" className="bg-gray-800 text-white">По алфавиту</option>
+                          <option value="products" className="bg-gray-800 text-white">По товарам</option>
                         </select>
                         <ChevronUpDownIcon className="h-3 w-3 text-gray-400 flex-shrink-0" />
                       </div>
@@ -974,7 +976,7 @@ export default function CategoriesPage() {
                       className={`flex items-center justify-center px-3 py-2 h-10 rounded-lg border transition-all duration-200 flex-shrink-0 ${
                         sortOrder === 'desc'
                           ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
-                          : 'bg-gray-700/30 border-gray-600/50 text-gray-400 hover:border-gray-500/50 hover:text-gray-300'
+                          : 'border-gray-600/50 text-gray-400 hover:border-gray-500/50 hover:text-gray-300'
                       }`}
                       title={sortOrder === 'desc' ? 'По убыванию' : 'По возрастанию'}
                     >
@@ -997,7 +999,7 @@ export default function CategoriesPage() {
                       className={`flex items-center justify-center space-x-2 px-3 py-3 rounded-lg border transition-all duration-200 ${
                         showOnlyParents
                           ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
-                          : 'bg-gray-700/30 border-gray-600/50 text-gray-300 hover:border-gray-500/50'
+                          : 'border-gray-600/50 text-gray-300 hover:border-gray-500/50'
                       }`}
                     >
                       <FunnelIcon className="h-4 w-4 flex-shrink-0" />

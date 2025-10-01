@@ -634,18 +634,19 @@ export default function OrdersPage() {
               {/* Sort Controls */}
               <div className="flex items-center space-x-2 flex-1">
                 <div className="flex-1 sm:flex-none">
-                  <div className="flex items-center space-x-2 sm:space-x-3 bg-gray-700/30 border border-gray-600/50 rounded-lg px-3 sm:px-4 py-3">
+                  <div className="flex items-center space-x-2 sm:space-x-3 border border-gray-600/50 rounded-lg px-3 sm:px-4 py-3">
                     <BarsArrowUpIcon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as SortOption)}
                       className="bg-transparent text-white text-sm font-medium focus:outline-none cursor-pointer min-w-0 flex-1"
+                      style={{ colorScheme: 'dark' }}
                     >
-                      <option value="newest" className="bg-gray-800">По дате</option>
-                      <option value="orderNumber" className="bg-gray-800">По номеру</option>
-                      <option value="totalPrice" className="bg-gray-800">По сумме</option>
-                      <option value="customerName" className="bg-gray-800">По клиенту</option>
-                      <option value="status" className="bg-gray-800">По статусу</option>
+                      <option value="newest" className="bg-gray-800 text-white">По дате</option>
+                      <option value="orderNumber" className="bg-gray-800 text-white">По номеру</option>
+                      <option value="totalPrice" className="bg-gray-800 text-white">По сумме</option>
+                      <option value="customerName" className="bg-gray-800 text-white">По клиенту</option>
+                      <option value="status" className="bg-gray-800 text-white">По статусу</option>
                     </select>
                     <ChevronUpDownIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 flex-shrink-0" />
                   </div>
@@ -656,7 +657,7 @@ export default function OrdersPage() {
                   className={`flex items-center justify-center w-11 h-11 rounded-lg border transition-all duration-200 flex-shrink-0 ${
                     sortOrder === 'desc'
                       ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
-                      : 'bg-gray-700/30 border-gray-600/50 text-gray-400 hover:border-gray-500/50 hover:text-gray-300'
+                      : 'border-gray-600/50 text-gray-400 hover:border-gray-500/50 hover:text-gray-300'
                   }`}
                   title={sortOrder === 'desc' ? 'По убыванию' : 'По возрастанию'}
                 >
@@ -670,19 +671,20 @@ export default function OrdersPage() {
 
               {/* Status Filter */}
               <div className="flex-1 sm:flex-none">
-                <div className="flex items-center space-x-2 sm:space-x-3 bg-gray-700/30 border border-gray-600/50 rounded-lg px-3 sm:px-4 py-3">
+                <div className="flex items-center space-x-2 sm:space-x-3 border border-gray-600/50 rounded-lg px-3 sm:px-4 py-3">
                   <CheckCircleIcon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
                     className="bg-transparent text-white text-sm font-medium focus:outline-none cursor-pointer min-w-0 flex-1"
+                    style={{ colorScheme: 'dark' }}
                   >
-                    <option value="all" className="bg-gray-800">Все статусы</option>
-                    <option value="PENDING" className="bg-gray-800">В ожидании</option>
-                    <option value="PAID" className="bg-gray-800">Оплачен</option>
-                    <option value="SHIPPED" className="bg-gray-800">Отправлен</option>
-                    <option value="COMPLETED" className="bg-gray-800">Завершен</option>
-                    <option value="CANCELLED" className="bg-gray-800">Отменен</option>
+                    <option value="all" className="bg-gray-800 text-white">Все статусы</option>
+                    <option value="PENDING" className="bg-gray-800 text-white">В ожидании</option>
+                    <option value="PAID" className="bg-gray-800 text-white">Оплачен</option>
+                    <option value="SHIPPED" className="bg-gray-800 text-white">Отправлен</option>
+                    <option value="COMPLETED" className="bg-gray-800 text-white">Завершен</option>
+                    <option value="CANCELLED" className="bg-gray-800 text-white">Отменен</option>
                   </select>
                   <ChevronUpDownIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 flex-shrink-0" />
                 </div>
@@ -690,16 +692,17 @@ export default function OrdersPage() {
 
               {/* Contact Type Filter */}
               <div className="flex-1 sm:flex-none">
-                <div className="flex items-center space-x-2 sm:space-x-3 bg-gray-700/30 border border-gray-600/50 rounded-lg px-3 sm:px-4 py-3">
+                <div className="flex items-center space-x-2 sm:space-x-3 border border-gray-600/50 rounded-lg px-3 sm:px-4 py-3">
                   <PhoneIcon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
                   <select
                     value={contactTypeFilter}
                     onChange={(e) => setContactTypeFilter(e.target.value)}
                     className="bg-transparent text-white text-sm font-medium focus:outline-none cursor-pointer min-w-0 flex-1"
+                    style={{ colorScheme: 'dark' }}
                   >
-                    <option value="all" className="bg-gray-800">Все контакты</option>
-                    <option value="WHATSAPP" className="bg-gray-800">WhatsApp</option>
-                    <option value="CALL" className="bg-gray-800">Звонок</option>
+                    <option value="all" className="bg-gray-800 text-white">Все контакты</option>
+                    <option value="WHATSAPP" className="bg-gray-800 text-white">WhatsApp</option>
+                    <option value="CALL" className="bg-gray-800 text-white">Звонок</option>
                   </select>
                   <ChevronUpDownIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 flex-shrink-0" />
                 </div>
@@ -747,7 +750,7 @@ export default function OrdersPage() {
                       e.stopPropagation();
                       setShowDateTimeFrom(!showDateTimeFrom);
                     }}
-                    className={`w-full flex items-center space-x-2 sm:space-x-3 bg-gray-700/30 border border-gray-600/50 rounded-lg px-3 sm:px-4 py-3 hover:bg-gray-700/40 transition-all duration-200 cursor-pointer ${
+                    className={`w-full flex items-center space-x-2 sm:space-x-3 border border-gray-600/50 rounded-lg px-3 sm:px-4 py-3 hover:border-gray-500/50 transition-all duration-200 cursor-pointer ${
                       dateFromFilter ? 'ring-1 ring-indigo-500/50 border-indigo-500/50' : ''
                     }`}
                   >
@@ -857,7 +860,7 @@ export default function OrdersPage() {
                       e.stopPropagation();
                       setShowDateTimeTo(!showDateTimeTo);
                     }}
-                    className={`w-full flex items-center space-x-2 sm:space-x-3 bg-gray-700/30 border border-gray-600/50 rounded-lg px-3 sm:px-4 py-3 hover:bg-gray-700/40 transition-all duration-200 cursor-pointer ${
+                    className={`w-full flex items-center space-x-2 sm:space-x-3 border border-gray-600/50 rounded-lg px-3 sm:px-4 py-3 hover:border-gray-500/50 transition-all duration-200 cursor-pointer ${
                       dateToFilter ? 'ring-1 ring-indigo-500/50 border-indigo-500/50' : ''
                     }`}
                   >
