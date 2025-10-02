@@ -72,10 +72,9 @@ export async function GET(request: Request) {
 
       if (search && search.trim()) {
         where.OR = [
-          { orderNumber: { contains: search, mode: 'insensitive' } },
           { customerName: { contains: search, mode: 'insensitive' } },
           { customerPhone: { contains: search, mode: 'insensitive' } },
-          { customerAddress: { contains: search, mode: 'insensitive' } }
+          { deliveryAddress: { contains: search, mode: 'insensitive' } }
         ];
       }
 
@@ -97,21 +96,17 @@ export async function GET(request: Request) {
         }
       }
 
-      // Условия для фильтрации по статусу платежа
-      if (paymentStatus && paymentStatus !== 'all') {
-        where.payment = {
-          status: paymentStatus
-        };
-      }
+      // Условия для фильтрации по статусу платежа - убираем, так как payment не существует в модели
+      // if (paymentStatus && paymentStatus !== 'all') {
+      //   where.payment = {
+      //     status: paymentStatus
+      //   };
+      // }
 
       // Строим условия сортировки
       const orderBy: any = {};
-      if (sortBy === 'totalPrice') {
-        orderBy.totalPrice = sortOrder;
-      } else if (sortBy === 'customerName') {
+      if (sortBy === 'customerName') {
         orderBy.customerName = sortOrder;
-      } else if (sortBy === 'orderNumber') {
-        orderBy.orderNumber = sortOrder;
       } else {
         orderBy.createdAt = sortOrder;
       }
@@ -123,29 +118,31 @@ export async function GET(request: Request) {
         prisma.order.findMany({
           where,
           include: {
-            items: {
+            orderItems: {
               include: {
-                variant: {
-                  include: {
-                    product: {
+                product: {
+                  select: {
+                    name: true,
+                    category: {
                       select: {
-                        name: true,
-                        category: {
-                          select: {
-                            name: true
-                          }
-                        }
+                        name: true
                       }
-                    },
-                    images: {
-                      where: { isMain: true },
-                      take: 1
                     }
+                  }
+                },
+                color: {
+                  select: {
+                    name: true,
+                    colorCode: true
+                  }
+                },
+                size: {
+                  select: {
+                    name: true
                   }
                 }
               }
-            },
-            payment: true
+            }
           },
           orderBy,
           skip,
@@ -166,28 +163,20 @@ export async function GET(request: Request) {
 
       // Преобразуем данные для фронтенда
       const transformedOrders = orders.map(order => {
-        const itemsCount = order.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-        const productsCount = order.items?.length || 0;
+        const itemsCount = order.orderItems?.reduce((sum: number, item: any) => sum + item.amount, 0) || 0;
+        const productsCount = order.orderItems?.length || 0;
+        const totalPrice = order.orderItems?.reduce((sum: number, item: any) => sum + (Number(item.price) * item.amount), 0) || 0;
         
         return {
           ...order,
-          totalPrice: Number(order.totalPrice || 0),
+          totalPrice: Number(totalPrice),
           itemsCount,
           productsCount,
-          items: order.items?.map(item => ({
+          items: order.orderItems?.map((item: any) => ({
             ...item,
-            price: Number(item.price),
-            variant: {
-              ...item.variant,
-              price: Number(item.variant.price),
-              discountPrice: item.variant.discountPrice ? Number(item.variant.discountPrice) : null,
-              mainImage: item.variant.images?.[0]?.imageUrl || null
-            }
-          })) || [],
-          payment: order.payment ? {
-            ...order.payment,
-            amount: Number(order.payment.amount)
-          } : null
+            quantity: item.amount, // Map amount to quantity for frontend compatibility
+            price: Number(item.price)
+          })) || []
         };
       });
 
@@ -225,7 +214,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('Orders GET error:', error);
     return NextResponse.json(
-      { error: 'Ошибка получения заказов', details: error?.message || 'Unknown error' },
+      { error: 'Ошибка получения заказов', details: (error as Error)?.message || 'Unknown error' },
       { status: 500 }
     );
   } finally {

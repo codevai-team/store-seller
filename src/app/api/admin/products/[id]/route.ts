@@ -222,8 +222,16 @@ export async function PUT(
           });
 
           if (!color) {
+            // Генерируем случайный цветовой код для нового цвета
+            const generateRandomColor = () => {
+              return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+            };
+            
             color = await tx.color.create({
-              data: { name: colorName.trim() }
+              data: { 
+                name: colorName.trim(),
+                colorCode: generateRandomColor()
+              }
             });
           }
 

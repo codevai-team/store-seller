@@ -3,179 +3,192 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// GET - получить филиал по ID
+// GET - получить продавца по ID (заменяем филиал на продавца)
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const store = await prisma.store.findUnique({
-      where: { id: params.id },
-      include: {
+    const seller = await prisma.user.findUnique({
+      where: { 
+        id: params.id,
+        role: 'SELLER' // Только продавцы
+      },
+      select: {
+        id: true,
+        fullname: true,
+        phoneNumber: true,
+        status: true,
+        createdAt: true,
         _count: {
           select: {
-            shifts: true,
-            orders: true,
+            products: true,
+            deliveredOrders: true,
           },
         },
-        shifts: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                phone: true,
-              },
-            },
+        products: {
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            status: true,
+            createdAt: true,
           },
           orderBy: {
-            startedAt: 'desc',
+            createdAt: 'desc',
           },
           take: 5,
         },
       },
     });
 
-    if (!store) {
+    if (!seller) {
       return NextResponse.json(
-        { error: 'Филиал не найден' },
+        { error: 'Продавец не найден' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(store);
+    return NextResponse.json(seller);
   } catch (error) {
-    console.error('Error fetching store:', error);
+    console.error('Error fetching seller:', error);
     return NextResponse.json(
-      { error: 'Ошибка при получении филиала' },
+      { error: 'Ошибка при получении продавца' },
       { status: 500 }
     );
   }
 }
 
-// PUT - обновить филиал
+// PUT - обновить продавца
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const body = await request.json();
-    const { name, address, phone, location, isActive } = body;
+    const { fullname, phoneNumber, status } = body;
 
     // Валидация
-    if (!name || !address || !phone || !location) {
+    if (!fullname || !phoneNumber) {
       return NextResponse.json(
-        { error: 'Все поля обязательны для заполнения' },
+        { error: 'Имя и телефон обязательны для заполнения' },
         { status: 400 }
       );
     }
 
-    // Проверка на существование филиала
-    const existingStore = await prisma.store.findUnique({
-      where: { id: params.id },
+    // Проверка на существование продавца
+    const existingSeller = await prisma.user.findUnique({
+      where: { 
+        id: params.id,
+      },
     });
 
-    if (!existingStore) {
+    if (!existingSeller || existingSeller.role !== 'SELLER') {
       return NextResponse.json(
-        { error: 'Филиал не найден' },
+        { error: 'Продавец не найден' },
         { status: 404 }
       );
     }
 
-    // Проверка на уникальность телефона (исключая текущий филиал)
-    const storeWithSamePhone = await prisma.store.findFirst({
+    // Проверка на уникальность телефона (исключая текущего продавца)
+    const sellerWithSamePhone = await prisma.user.findFirst({
       where: { 
-        phone,
+        phoneNumber,
         id: { not: params.id },
       },
     });
 
-    if (storeWithSamePhone) {
+    if (sellerWithSamePhone) {
       return NextResponse.json(
-        { error: 'Филиал с таким номером телефона уже существует' },
+        { error: 'Пользователь с таким номером телефона уже существует' },
         { status: 400 }
       );
     }
 
-    const store = await prisma.store.update({
+    const seller = await prisma.user.update({
       where: { id: params.id },
       data: {
-        name,
-        address,
-        phone,
-        location,
-        isActive,
+        fullname,
+        phoneNumber,
+        status: status as 'ACTIVE' | 'INACTIVE',
       },
-      include: {
+      select: {
+        id: true,
+        fullname: true,
+        phoneNumber: true,
+        status: true,
+        createdAt: true,
         _count: {
           select: {
-            shifts: true,
-            orders: true,
+            products: true,
+            deliveredOrders: true,
           },
         },
       },
     });
 
-    return NextResponse.json(store);
+    return NextResponse.json(seller);
   } catch (error) {
-    console.error('Error updating store:', error);
+    console.error('Error updating seller:', error);
     return NextResponse.json(
-      { error: 'Ошибка при обновлении филиала' },
+      { error: 'Ошибка при обновлении продавца' },
       { status: 500 }
     );
   }
 }
 
-// DELETE - удалить филиал
+// DELETE - удалить продавца
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Проверка на существование филиала
-    const existingStore = await prisma.store.findUnique({
+    // Проверка на существование продавца
+    const existingSeller = await prisma.user.findUnique({
       where: { id: params.id },
-      include: {
+      select: {
+        id: true,
+        role: true,
         _count: {
           select: {
-            shifts: true,
-            orders: true,
+            products: true,
+            deliveredOrders: true,
           },
         },
       },
     });
 
-    if (!existingStore) {
+    if (!existingSeller || existingSeller.role !== 'SELLER') {
       return NextResponse.json(
-        { error: 'Филиал не найден' },
+        { error: 'Продавец не найден' },
         { status: 404 }
       );
     }
 
     // Проверка на связанные данные
-    if (existingStore._count.shifts > 0) {
+    if (existingSeller._count.products > 0) {
       return NextResponse.json(
-        { error: 'Невозможно удалить филиал с активными сменами' },
+        { error: 'Невозможно удалить продавца с активными товарами' },
         { status: 400 }
       );
     }
 
-    if (existingStore._count.orders > 0) {
+    if (existingSeller._count.deliveredOrders > 0) {
       return NextResponse.json(
-        { error: 'Невозможно удалить филиал с заказами' },
+        { error: 'Невозможно удалить продавца с доставленными заказами' },
         { status: 400 }
       );
     }
 
-    await prisma.store.delete({
+    await prisma.user.delete({
       where: { id: params.id },
     });
 
-    return NextResponse.json({ message: 'Филиал успешно удален' });
+    return NextResponse.json({ message: 'Продавец успешно удален' });
   } catch (error) {
-    console.error('Error deleting store:', error);
+    console.error('Error deleting seller:', error);
     return NextResponse.json(
-      { error: 'Ошибка при удалении филиала' },
+      { error: 'Ошибка при удалении продавца' },
       { status: 500 }
     );
   }

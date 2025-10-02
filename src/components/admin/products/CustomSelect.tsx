@@ -70,6 +70,7 @@ export default function CustomSelect({
   }, [isOpen]);
 
   const handleSelect = (optionValue: string) => {
+    console.log('CustomSelect: selecting option', optionValue);
     onChange(optionValue);
     setIsOpen(false);
   };
@@ -79,7 +80,12 @@ export default function CustomSelect({
       {/* Trigger */}
       <button
         type="button"
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onClick={() => {
+          console.log('CustomSelect button clicked, disabled:', disabled, 'current isOpen:', isOpen);
+          if (!disabled) {
+            setIsOpen(!isOpen);
+          }
+        }}
         disabled={disabled}
         className={`
           w-full flex items-center justify-between px-3 py-2 h-10 text-left
@@ -114,11 +120,12 @@ export default function CustomSelect({
       {/* Dropdown Portal */}
       {isOpen && typeof window !== 'undefined' && createPortal(
         <div 
-          className="fixed z-[9999] bg-gray-800 border border-gray-600/50 rounded-lg shadow-xl max-h-60 overflow-auto"
+          className="fixed z-[99999] bg-gray-800 border border-gray-600/50 rounded-lg shadow-2xl max-h-60 overflow-auto"
           style={{
             top: dropdownPosition.top,
             left: dropdownPosition.left,
-            width: dropdownPosition.width
+            width: dropdownPosition.width,
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.8)'
           }}
         >
           {options.map((option, index) => (

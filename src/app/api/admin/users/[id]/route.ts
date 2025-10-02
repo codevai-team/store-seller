@@ -11,29 +11,29 @@ export async function GET(
   try {
     const user = await prisma.user.findUnique({
       where: { id: params.id },
-      include: {
+      select: {
+        id: true,
+        fullname: true,
+        phoneNumber: true,
+        role: true,
+        status: true,
+        createdAt: true,
         _count: {
           select: {
-            shifts: true,
+            products: true,
+            deliveredOrders: true,
           },
         },
-        shifts: {
-          include: {
-            store: {
-              select: {
-                id: true,
-                name: true,
-                address: true,
-              },
-            },
-            _count: {
-              select: {
-                orders: true,
-              },
-            },
+        products: {
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            status: true,
+            createdAt: true,
           },
           orderBy: {
-            startedAt: 'desc',
+            createdAt: 'desc',
           },
           take: 10,
         },
@@ -64,10 +64,10 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const { name, phone, role } = body;
+    const { fullname, phoneNumber, role, status } = body;
 
     // Валидация
-    if (!name || !phone) {
+    if (!fullname || !phoneNumber) {
       return NextResponse.json(
         { error: 'Имя и телефон обязательны для заполнения' },
         { status: 400 }
@@ -76,7 +76,7 @@ export async function PUT(
 
     // Валидация телефона
     const phoneRegex = /^\+?[\d\s\-\(\)]+$/;
-    if (!phoneRegex.test(phone)) {
+    if (!phoneRegex.test(phoneNumber)) {
       return NextResponse.json(
         { error: 'Неверный формат номера телефона' },
         { status: 400 }
@@ -98,7 +98,7 @@ export async function PUT(
     // Проверка на уникальность телефона (исключая текущего сотрудника)
     const userWithSamePhone = await prisma.user.findFirst({
       where: { 
-        phone,
+        phoneNumber,
         id: { not: params.id },
       },
     });
@@ -113,14 +113,22 @@ export async function PUT(
     const user = await prisma.user.update({
       where: { id: params.id },
       data: {
-        name,
-        phone,
-        role,
+        fullname,
+        phoneNumber,
+        role: role as 'ADMIN' | 'COURIER' | 'SELLER',
+        status: status as 'ACTIVE' | 'INACTIVE',
       },
-      include: {
+      select: {
+        id: true,
+        fullname: true,
+        phoneNumber: true,
+        role: true,
+        status: true,
+        createdAt: true,
         _count: {
           select: {
-            shifts: true,
+            products: true,
+            deliveredOrders: true,
           },
         },
       },
@@ -145,10 +153,13 @@ export async function DELETE(
     // Проверка на существование сотрудника
     const existingUser = await prisma.user.findUnique({
       where: { id: params.id },
-      include: {
+      select: {
+        id: true,
+        role: true,
         _count: {
           select: {
-            shifts: true,
+            products: true,
+            deliveredOrders: true,
           },
         },
       },
@@ -162,9 +173,16 @@ export async function DELETE(
     }
 
     // Проверка на связанные данные
-    if (existingUser._count.shifts > 0) {
+    if (existingUser._count.products > 0) {
       return NextResponse.json(
-        { error: 'Невозможно удалить сотрудника с активными сменами' },
+        { error: 'Невозможно удалить сотрудника с активными товарами' },
+        { status: 400 }
+      );
+    }
+
+    if (existingUser._count.deliveredOrders > 0) {
+      return NextResponse.json(
+        { error: 'Невозможно удалить сотрудника с доставленными заказами' },
         { status: 400 }
       );
     }

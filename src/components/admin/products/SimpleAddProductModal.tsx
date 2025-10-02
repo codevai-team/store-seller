@@ -180,7 +180,10 @@ const SimpleAddProductModal = forwardRef<SimpleAddProductModalRef, SimpleAddProd
     }
   };
 
-
+  // Debug: проверяем категории
+  useEffect(() => {
+    console.log('Categories in SimpleAddProductModal:', categories);
+  }, [categories]);
 
   const resetForm = () => {
     setFormData({
@@ -398,26 +401,33 @@ const SimpleAddProductModal = forwardRef<SimpleAddProductModalRef, SimpleAddProd
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Категория *
               </label>
-              <CustomSelect
-                value={formData.categoryId}
-                onChange={(value) => setFormData(prev => ({ ...prev, categoryId: value }))}
-                options={[
-                  { value: '', label: 'Выберите категорию' },
-                  ...categories
-                    .filter(category => !category.parentId)
-                    .flatMap(category => [
-                      { value: category.id, label: category.name },
-                      ...categories
-                        .filter(subcat => subcat.parentId === category.id)
-                        .map(subcategory => ({
-                          value: subcategory.id,
-                          label: `├─ ${subcategory.name}`
-                        }))
-                    ])
-                ]}
-                placeholder="Выберите категорию"
-                icon={<TagIcon className="h-5 w-5" />}
-              />
+              <div className="space-y-2">
+                {/* Обычный select для тестирования */}
+                <div className="relative">
+                  <TagIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <select
+                    value={formData.categoryId}
+                    onChange={(e) => {
+                      console.log('Native select category selected:', e.target.value);
+                      setFormData(prev => ({ ...prev, categoryId: e.target.value }));
+                    }}
+                    className="w-full bg-gray-700/50 border border-gray-600/50 rounded-lg pl-10 pr-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    required
+                  >
+                    <option value="">Выберите категорию</option>
+                    {categories.map(category => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                {/* Отладочная информация */}
+                <div className="text-xs text-gray-400">
+                  Категорий загружено: {categories.length}, Выбрано: {formData.categoryId || 'не выбрано'}
+                </div>
+              </div>
             </div>
 
             {/* Статус */}

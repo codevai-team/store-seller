@@ -21,8 +21,8 @@ export async function GET(request: NextRequest) {
     
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search, mode: 'insensitive' } },
+        { fullname: { contains: search, mode: 'insensitive' } },
+        { phoneNumber: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -37,25 +37,18 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
         orderBy: { [sortBy]: sortOrder },
-        include: {
+        select: {
+          id: true,
+          fullname: true,
+          phoneNumber: true,
+          role: true,
+          status: true,
+          createdAt: true,
           _count: {
             select: {
-              shifts: true,
+              products: true,
+              deliveredOrders: true,
             },
-          },
-          shifts: {
-            include: {
-              store: {
-                select: {
-                  id: true,
-                  name: true,
-                },
-              },
-            },
-            orderBy: {
-              startedAt: 'desc',
-            },
-            take: 1,
           },
         },
       }),
@@ -86,19 +79,19 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, phone, role = 'MANAGER' } = body;
+    const { fullname, phoneNumber, password, role = 'SELLER' } = body;
 
     // Валидация
-    if (!name || !phone) {
+    if (!fullname || !phoneNumber || !password) {
       return NextResponse.json(
-        { error: 'Имя и телефон обязательны для заполнения' },
+        { error: 'Имя, телефон и пароль обязательны для заполнения' },
         { status: 400 }
       );
     }
 
     // Валидация телефона
     const phoneRegex = /^\+?[\d\s\-\(\)]+$/;
-    if (!phoneRegex.test(phone)) {
+    if (!phoneRegex.test(phoneNumber)) {
       return NextResponse.json(
         { error: 'Неверный формат номера телефона' },
         { status: 400 }
@@ -107,7 +100,7 @@ export async function POST(request: NextRequest) {
 
     // Проверка на уникальность телефона
     const existingUser = await prisma.user.findUnique({
-      where: { phone },
+      where: { phoneNumber },
     });
 
     if (existingUser) {
@@ -119,14 +112,22 @@ export async function POST(request: NextRequest) {
 
     const user = await prisma.user.create({
       data: {
-        name,
-        phone,
-        role,
+        fullname,
+        phoneNumber,
+        password, // В реальном приложении пароль должен быть хешированным
+        role: role as 'ADMIN' | 'COURIER' | 'SELLER',
       },
-      include: {
+      select: {
+        id: true,
+        fullname: true,
+        phoneNumber: true,
+        role: true,
+        status: true,
+        createdAt: true,
         _count: {
           select: {
-            shifts: true,
+            products: true,
+            deliveredOrders: true,
           },
         },
       },

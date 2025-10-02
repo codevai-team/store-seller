@@ -206,7 +206,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('Orders GET error:', error);
     return NextResponse.json(
-      { error: 'Ошибка получения заказов', details: error?.message || 'Unknown error' },
+      { error: 'Ошибка получения заказов', details: (error as Error)?.message || 'Unknown error' },
       { status: 500 }
     );
   } finally {

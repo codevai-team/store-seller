@@ -176,7 +176,10 @@ export default function ProductsPage() {
       const response = await fetch('/api/admin/categories');
       if (response.ok) {
         const data = await response.json();
+        console.log('Fetched categories:', data);
         setCategories(data);
+      } else {
+        console.error('Failed to fetch categories:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
