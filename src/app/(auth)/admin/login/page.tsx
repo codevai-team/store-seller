@@ -72,9 +72,8 @@ export default function AdminLogin() {
           {/* Header */}
           <div className="text-center animate-slide-down">
             <div className="relative inline-block">
-              <div className="mx-auto w-20 h-20 bg-gradient-to-br from-purple-500 via-indigo-500 to-purple-600 rounded-3xl flex items-center justify-center shadow-2xl mb-8 transform hover:scale-110 transition-all duration-500 group" style={{ background: 'linear-gradient(135deg, #8341FD 0%, #6366F1 50%, #8B5CF6 100%)' }}>
-                <LockClosedIcon className="h-10 w-10 text-white group-hover:rotate-12 transition-transform duration-300" />
-                <div className="absolute inset-0 rounded-3xl blur-lg opacity-50 group-hover:opacity-75 transition-opacity duration-300" style={{ background: 'linear-gradient(135deg, #8341FD 0%, #6366F1 50%, #8B5CF6 100%)' }}></div>
+              <div className="mx-auto w-24 h-24 rounded-3xl flex items-center justify-center shadow-2xl mb-8 transform hover:scale-110 transition-all duration-500 group">
+                <img src="/seller-icon.ico" alt="Store Seller Logo" className="w-24 h-24 rounded-3xl group-hover:scale-105 transition-transform duration-300" />
               </div>
           </div>
             
@@ -82,7 +81,7 @@ export default function AdminLogin() {
               Добро пожаловать
             </h1>
             <p className="text-purple-100 text-lg font-medium animate-fade-in-delayed">
-              Войдите в панель администратора
+              Войдите в панель продовца
           </p>
         </div>
         
@@ -218,7 +217,7 @@ export default function AdminLogin() {
           {/* Footer */}
           <div className="text-center animate-fade-in-delayed">
             <p className="text-purple-200 text-sm font-medium">
-              Store Seller Admin Panel
+              Store Seller Panel
             </p>
             </div>
           </div>

@@ -18,7 +18,7 @@ export default function TopProductsChart({ data }: TopProductsChartProps) {
       style: 'currency',
       currency: 'KGS',
       minimumFractionDigits: 0,
-    }).format(value);
+    }).format(value).replace('KGS', 'с.');
   };
 
   // Обрезаем длинные названия

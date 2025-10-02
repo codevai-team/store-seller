@@ -20,7 +20,7 @@ export default function OrderStatusChart({ data }: OrderStatusChartProps) {
       style: 'currency',
       currency: 'KGS',
       minimumFractionDigits: 0,
-    }).format(value);
+    }).format(value).replace('KGS', 'с.');
   };
 
   return (

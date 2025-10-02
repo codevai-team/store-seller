@@ -60,7 +60,7 @@ export default function MobileProductCard({
       style: 'currency',
       currency: 'KGS',
       minimumFractionDigits: 0,
-    }).format(price);
+    }).format(price).replace('KGS', 'с.');
   };
 
   // Get status color and text

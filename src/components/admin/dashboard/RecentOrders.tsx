@@ -22,7 +22,7 @@ export default function RecentOrders({ orders }: RecentOrdersProps) {
       style: 'currency',
       currency: 'KGS',
       minimumFractionDigits: 0,
-    }).format(value);
+    }).format(value).replace('KGS', 'с.');
   };
 
   const formatDate = (dateString: string) => {

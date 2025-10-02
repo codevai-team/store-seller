@@ -357,7 +357,7 @@ export default function OrdersPage() {
       style: 'currency',
       currency: 'KGS',
       minimumFractionDigits: 0,
-    }).format(price);
+    }).format(price).replace('KGS', 'с.');
   };
 
   // Форматирование даты

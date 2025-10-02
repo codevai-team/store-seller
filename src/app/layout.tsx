@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title: "Store Seller - Seller Panel",
   description: "Система администрирования интернет-магазина Store Seller",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/seller-icon.ico",
   },
 };
 

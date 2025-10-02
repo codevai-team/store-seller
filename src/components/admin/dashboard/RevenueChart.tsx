@@ -18,7 +18,7 @@ export default function RevenueChart({ data }: RevenueChartProps) {
       style: 'currency',
       currency: 'KGS',
       minimumFractionDigits: 0,
-    }).format(value);
+    }).format(value).replace('KGS', 'с.');
   };
 
   return (

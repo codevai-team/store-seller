@@ -296,7 +296,7 @@ export default function OrderTrackingModal({ isOpen, onClose }: OrderTrackingMod
                               </div>
                             </div>
                             <div className="text-right ml-2 flex-shrink-0">
-                              <p className="font-semibold text-indigo-400 text-xs sm:text-sm">{(Number(item.price) * item.quantity).toLocaleString()} сом</p>
+                              <p className="font-semibold text-xs sm:text-sm" style={{color: '#00C950'}}>{(Number(item.price) * item.quantity).toLocaleString()} сом</p>
                             </div>
                           </div>
                         ))}
@@ -304,7 +304,7 @@ export default function OrderTrackingModal({ isOpen, onClose }: OrderTrackingMod
                       
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs sm:text-sm gap-2">
                         <span className="text-gray-400">Клиент: {order.customerName}</span>
-                        <span className="font-semibold text-white">Итого: {(order.items?.reduce((sum, item) => sum + (Number(item.price) * item.quantity), 0) || order.totalPrice || 0).toLocaleString()} сом</span>
+                        <span className="font-semibold" style={{color: '#00C950'}}>Итого: {(order.items?.reduce((sum, item) => sum + (Number(item.price) * item.quantity), 0) || order.totalPrice || 0).toLocaleString()} сом</span>
                       </div>
                     </div>
                     

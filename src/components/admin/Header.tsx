@@ -50,8 +50,8 @@ export default function Header() {
       {/* Logo and Brand */}
       <div className="flex items-center">
         {/* Logo */}
-        <div className="w-9 h-9 relative sm:mr-4 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center">
-          <LockClosedIcon className="h-5 w-5 text-white" />
+        <div className="w-12 h-12 relative sm:mr-4 rounded-lg flex items-center justify-center">
+          <img src="/seller-icon.ico" alt="Store Seller Logo" className="w-12 h-12 rounded-lg" />
         </div>
         
         {/* Brand text - только desktop */}

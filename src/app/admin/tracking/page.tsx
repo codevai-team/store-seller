@@ -551,7 +551,7 @@ export default function TrackingPage() {
       style: 'currency',
       currency: 'KGS',
       minimumFractionDigits: 0,
-    }).format(Number(price));
+    }).format(Number(price)).replace('KGS', 'с.');
   };
 
   // Функции для работы с датами
@@ -1442,7 +1442,7 @@ export default function TrackingPage() {
 
                       {/* Price and Quantity */}
                       <div className="flex-shrink-0 text-right min-w-0">
-                        <p className="text-yellow-300 text-xs sm:text-sm font-semibold truncate">
+                        <p className="text-xs sm:text-sm font-semibold truncate" style={{color: '#00C950'}}>
                           {formatPrice(order.totalPrice)}
                         </p>
                         <p className="text-gray-400 text-xs truncate">
@@ -1503,8 +1503,8 @@ export default function TrackingPage() {
                               <span>Цена: {formatPrice(item.price)}</span>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="text-yellow-300 font-semibold text-xs">
+                            <div className="text-right">
+                            <div className="font-semibold text-xs" style={{color: '#00C950'}}>
                               {formatPrice(item.price * item.quantity)}
                             </div>
                           </div>
@@ -1528,7 +1528,7 @@ export default function TrackingPage() {
                 </h3>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-300 text-sm">Общая сумма:</span>
-                  <span className="text-yellow-300 font-semibold text-base">
+                  <span className="font-semibold text-base" style={{color: '#00C950'}}>
                     {formatPrice(selectedOrder.totalPrice)}
                           </span>
                 </div>

@@ -583,7 +583,7 @@ export default function ProductsPage() {
       style: 'currency',
       currency: 'KGS',
       minimumFractionDigits: 0,
-    }).format(price);
+    }).format(price).replace('KGS', 'с.');
   };
 
   if (loading) {

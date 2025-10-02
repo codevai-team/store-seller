@@ -65,7 +65,7 @@ export default function Dashboard() {
       style: 'currency',
       currency: 'KGS',
       minimumFractionDigits: 0,
-    }).format(value);
+    }).format(value).replace('KGS', 'с.');
   };
 
   const filteredProducts = products.filter(product =>
