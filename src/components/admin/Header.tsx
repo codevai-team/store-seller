@@ -54,14 +54,11 @@ export default function Header() {
           <img src="/seller-icon.ico" alt="Store Seller Logo" className="w-12 h-12 rounded-lg" />
         </div>
         
-        {/* Brand text - только desktop */}
-        <div className="hidden sm:block ml-0">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-white via-indigo-100 to-indigo-200 bg-clip-text text-transparent drop-shadow-sm">
-            
+        {/* Brand text */}
+        <div className="ml-0">
+          <h1 className="text-xl sm:text-lg font-black bg-gradient-to-r from-white via-blue-100 to-indigo-200 bg-clip-text text-transparent tracking-wide drop-shadow-lg hover:scale-105 transition-transform duration-300 cursor-default">
+            Seller Panel
           </h1>
-          <div className="flex items-center space-x-1 -mt-1">
-            <p className="text-xs text-indigo-300 font-medium">Seller Panel</p>
-          </div>
         </div>
         
       </div>
@@ -69,13 +66,6 @@ export default function Header() {
       {/* Right side */}
       <div className="flex items-center space-x-3">
 
-        {/* Quick Stats */}
-        <div className="hidden lg:flex items-center space-x-4 mr-2">
-          <div className="flex items-center space-x-2 bg-gray-800/60 rounded-lg px-3 py-1.5 backdrop-blur-sm">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            <span className="text-xs text-gray-300 font-medium">Online</span>
-          </div>
-        </div>
         
 
         {/* Profile dropdown */}

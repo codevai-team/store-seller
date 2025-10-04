@@ -98,6 +98,25 @@ export default function EditProductModal({
   const [newAttribute, setNewAttribute] = useState({ name: '', value: '' });
   const [loadingProduct, setLoadingProduct] = useState(false);
 
+  // Предотвращаем прокрутку заднего фона на мобильных устройствах
+  useEffect(() => {
+    if (isOpen && window.innerWidth < 768) { // только на мобильных устройствах
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    };
+  }, [isOpen]);
+
   // Загрузка данных товара при открытии модального окна
   useEffect(() => {
     if (isOpen && productId) {
@@ -257,10 +276,10 @@ export default function EditProductModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center p-3 z-50">
+    <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center p-2 sm:p-3 z-50">
       <div className="bg-gray-900/98 backdrop-blur-lg rounded-2xl w-full max-w-4xl max-h-[92vh] overflow-hidden border border-gray-700/30 shadow-2xl ring-1 ring-white/5">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-700/30 bg-gradient-to-r from-gray-800/50 to-gray-900/50">
+        <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-gray-700/30 bg-gradient-to-r from-gray-800/50 to-gray-900/50">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
               <CubeIcon className="h-4 w-4 text-white" />
@@ -277,7 +296,7 @@ export default function EditProductModal({
 
         {/* Content */}
         <div className="overflow-y-auto max-h-[calc(92vh-120px)]">
-          <form onSubmit={handleSubmit} className="p-5 space-y-5">
+          <form onSubmit={handleSubmit} className="p-3 sm:p-5 space-y-4 sm:space-y-5">
             {loadingProduct ? (
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
@@ -293,7 +312,7 @@ export default function EditProductModal({
                     <span>Основная информация</span>
                   </h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-400 mb-1.5">
                         Название товара *
@@ -502,7 +521,7 @@ export default function EditProductModal({
 
                       <div className="space-y-3">
                         {/* First Row: Color & Size */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <label className="block text-xs font-medium text-gray-400 mb-1.5">
                               Цвет *
@@ -524,7 +543,7 @@ export default function EditProductModal({
                         </div>
 
                         {/* Second Row: SKU, Quantity, Price */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                           <div>
                             <label className="block text-xs font-medium text-gray-400 mb-1.5">
                               Артикул (SKU)
@@ -630,7 +649,7 @@ export default function EditProductModal({
                           </button>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <input
                             type="text"
                             value={newAttribute.name}
@@ -749,7 +768,7 @@ export default function EditProductModal({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-between items-center px-5 py-3 border-t border-gray-700/30 bg-gradient-to-r from-gray-800/50 to-gray-900/50">
+        <div className="flex justify-between items-center px-3 sm:px-5 py-3 border-t border-gray-700/30 bg-gradient-to-r from-gray-800/50 to-gray-900/50">
           <div className="text-xs text-gray-400">
             Всего вариантов: {formData.variants.length}
           </div>

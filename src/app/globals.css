@@ -212,3 +212,13 @@ option {
   background-color: #1f2937 !important;
   color: white !important;
 }
+
+/* Hide scrollbar for modal content */
+.hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* WebKit */
+}

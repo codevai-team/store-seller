@@ -330,13 +330,28 @@ export async function DELETE(
 
     // Проверяем, что товар существует
     const existingProduct = await prisma.product.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            orderItems: true
+          }
+        }
+      }
     });
 
     if (!existingProduct) {
       return NextResponse.json(
         { error: 'Товар не найден' },
         { status: 404 }
+      );
+    }
+
+    // Проверяем, есть ли связанные заказы
+    if (existingProduct._count.orderItems > 0) {
+      return NextResponse.json(
+        { error: 'Невозможно удалить товар, который есть в заказах. Измените статус на "Неактивный" вместо удаления.' },
+        { status: 400 }
       );
     }
 
@@ -348,6 +363,11 @@ export async function DELETE(
 
       // Удаляем связи с цветами
       await tx.productColor.deleteMany({
+        where: { productId: id }
+      });
+
+      // Удаляем отзывы
+      await tx.review.deleteMany({
         where: { productId: id }
       });
 

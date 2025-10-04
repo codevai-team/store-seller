@@ -194,6 +194,25 @@ export default function TrackingPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [expandedDelivery, setExpandedDelivery] = useState(false);
+
+  // Предотвращаем прокрутку заднего фона для модального окна деталей заказа
+  useEffect(() => {
+    if (showOrderModal && window.innerWidth < 768) { // только на мобильных устройствах
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    };
+  }, [showOrderModal]);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [forceUpdate, setForceUpdate] = useState(0);
 
@@ -1460,10 +1479,13 @@ export default function TrackingPage() {
                         
       {/* Order Details Modal */}
       {showOrderModal && selectedOrder && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl rounded-2xl border border-gray-700/50 shadow-2xl ring-1 ring-white/5 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onTouchMove={(e) => e.preventDefault()}
+        >
+          <div className="bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl rounded-2xl border border-gray-700/50 shadow-2xl ring-1 ring-white/5 max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header - Fixed */}
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-700/50 flex-shrink-0">
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-orange-500/20 rounded-lg">
                   <TruckIcon className="h-5 w-5 text-orange-400" />
@@ -1481,8 +1503,8 @@ export default function TrackingPage() {
               </button>
             </div>
 
-            {/* Content */}
-            <div className="p-6 space-y-6">
+            {/* Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 hide-scrollbar">
               {/* Order Items */}
               <div>
                 <h3 className="text-base font-semibold text-white mb-3 flex items-center">
@@ -1713,8 +1735,8 @@ export default function TrackingPage() {
                         </div>
                         </div>
 
-            {/* Footer */}
-            <div className="flex items-center justify-end p-4 border-t border-gray-700/50">
+            {/* Footer - Fixed */}
+            <div className="flex items-center justify-end p-4 border-t border-gray-700/50 flex-shrink-0 bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95">
               <button
                 onClick={closeOrderModal}
                 className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium text-sm rounded-lg transition-colors"

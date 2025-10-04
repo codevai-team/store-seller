@@ -65,6 +65,25 @@ export default function MobileProductViewModal({
   sellers
 }: MobileProductViewModalProps) {
 
+  // Предотвращаем прокрутку заднего фона
+  React.useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    };
+  }, [isOpen]);
+
   if (!isOpen || !product) return null;
 
   // Get all images
@@ -111,6 +130,7 @@ export default function MobileProductViewModal({
         <div 
           className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           onClick={onClose}
+          onTouchMove={(e) => e.preventDefault()}
         />
         
         {/* Modal Content */}
@@ -155,7 +175,7 @@ export default function MobileProductViewModal({
           </div>
 
           {/* Content - Scrollable */}
-          <div className="flex-1 overflow-y-auto bg-gray-900">
+          <div className="flex-1 overflow-y-auto bg-gray-900 hide-scrollbar">
             {/* Image Gallery */}
             <div className="p-4">
               <MobileImageGallery
@@ -320,15 +340,10 @@ export default function MobileProductViewModal({
                     onClose();
                     setTimeout(() => onDelete(product), 100);
                   }}
-                  disabled={product.status === 'DELETED'}
-                  className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${
-                    product.status === 'DELETED'
-                      ? 'bg-gray-600/50 text-gray-400 cursor-not-allowed opacity-50'
-                      : 'bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30'
-                  }`}
+                  className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-xl transition-all duration-200 font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30"
                 >
                   <TrashIcon className="h-5 w-5" />
-                  <span>Удалить</span>
+                  <span>{product.status === 'DELETED' ? 'Удалить окончательно' : 'Удалить'}</span>
                 </button>
               </div>
             </div>

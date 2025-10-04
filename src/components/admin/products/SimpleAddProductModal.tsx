@@ -80,6 +80,25 @@ const SimpleAddProductModal = forwardRef<SimpleAddProductModalRef, SimpleAddProd
   const [resetImageState, setResetImageState] = useState(false); // Флаг для сброса состояния изображений
   const [productCreatedSuccessfully, setProductCreatedSuccessfully] = useState(false); // Флаг успешного создания
 
+  // Предотвращаем прокрутку заднего фона на мобильных устройствах
+  useEffect(() => {
+    if (isOpen && window.innerWidth < 768) { // только на мобильных устройствах
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    };
+  }, [isOpen]);
+
   // Инициализация формы при открытии модального окна
   useEffect(() => {
     if (isOpen) {
@@ -498,7 +517,7 @@ const SimpleAddProductModal = forwardRef<SimpleAddProductModalRef, SimpleAddProd
             
             <div className="space-y-3">
               {attributes.map((attr, index) => (
-                <div key={index} className="flex items-center space-x-3">
+                <div key={index} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
                   <input
                     type="text"
                     placeholder="Название атрибута"
@@ -516,7 +535,7 @@ const SimpleAddProductModal = forwardRef<SimpleAddProductModalRef, SimpleAddProd
                   <button
                     type="button"
                     onClick={() => removeAttribute(index)}
-                    className="p-2 text-red-400 hover:text-red-300 transition-colors"
+                    className="p-2 text-red-400 hover:text-red-300 transition-colors self-center sm:self-auto"
                     title="Удалить атрибут"
                   >
                     <TrashIcon className="h-5 w-5" />

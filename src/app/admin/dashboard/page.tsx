@@ -185,60 +185,83 @@ export default function Dashboard() {
 
                 {/* Product Info */}
                 <div className="p-4">
-                  <h3 className="text-white font-semibold text-lg mb-2 line-clamp-2">
-                    {product.name}
-                  </h3>
+                  {/* Product Name */}
+                  <div className="mb-3">
+                    <h3 className="text-white font-semibold text-base leading-tight mb-1 line-clamp-2 min-h-[2.5rem]">
+                      {product.name}
+                    </h3>
+                  </div>
                   
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Цена:</span>
-                      <span className="text-blue-400 font-bold text-lg">
+                  {/* Price */}
+                  <div className="mb-3">
+                    <div className="text-center">
+                      <span className="text-indigo-400 font-bold text-xl">
                         {formatCurrency(product.price)}
                       </span>
                     </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Категория:</span>
-                      <span className="text-gray-300">{product.category.name}</span>
+                  </div>
+                  
+                  {/* Category */}
+                  <div className="mb-3">
+                    <div className="flex items-center justify-center">
+                      <span className="text-xs text-gray-400 bg-gray-700/50 px-3 py-1.5 rounded-full border border-gray-600/30">
+                        {product.category.name}
+                      </span>
                     </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400">Продавец:</span>
-                      <span className="text-gray-300">{product.seller.fullname}</span>
+                  </div>
+                  
+                  {/* Additional Info */}
+                  <div className="space-y-2 text-xs">
+                    {/* Seller */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-500">Продавец:</span>
+                      <span className="text-gray-300 font-medium truncate ml-2">{product.seller.fullname}</span>
                     </div>
 
-                    {/* Sizes */}
-                    {product.sizes.length > 0 && (
-                      <div>
-                        <span className="text-gray-400 text-xs">Размеры:</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {product.sizes.map((size, index) => (
-                            <span key={index} className="bg-gray-700 text-gray-300 px-2 py-1 rounded text-xs">
-                              {size.name}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Colors */}
-                    {product.colors.length > 0 && (
-                      <div>
-                        <span className="text-gray-400 text-xs">Цвета:</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {product.colors.map((color, index) => (
-                            <div key={index} className="flex items-center space-x-1">
-                              <div 
-                                className="w-3 h-3 rounded-full border border-gray-600"
-                                style={{ backgroundColor: color.colorCode }}
-                              ></div>
-                              <span className="text-gray-300 text-xs">{color.name}</span>
+                    {/* Sizes and Colors - Compact */}
+                    {(product.sizes.length > 0 || product.colors.length > 0) && (
+                      <div className="pt-2 border-t border-gray-700/50">
+                        {/* Sizes */}
+                        {product.sizes.length > 0 && (
+                          <div className="mb-2">
+                            <span className="text-gray-500 text-xs">Размеры:</span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {product.sizes.slice(0, 3).map((size, index) => (
+                                <span key={index} className="bg-gray-700/50 text-gray-300 px-2 py-0.5 rounded text-xs">
+                                  {size.name}
+                                </span>
+                              ))}
+                              {product.sizes.length > 3 && (
+                                <span className="text-gray-500 text-xs">+{product.sizes.length - 3}</span>
+                              )}
                             </div>
-                          ))}
-                        </div>
+                          </div>
+                        )}
+
+                        {/* Colors */}
+                        {product.colors.length > 0 && (
+                          <div>
+                            <span className="text-gray-500 text-xs">Цвета:</span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {product.colors.slice(0, 4).map((color, index) => (
+                                <div key={index} className="flex items-center space-x-1">
+                                  <div 
+                                    className="w-3 h-3 rounded-full border border-gray-600/50"
+                                    style={{ backgroundColor: color.colorCode }}
+                                    title={color.name}
+                                  />
+                                </div>
+                              ))}
+                              {product.colors.length > 4 && (
+                                <span className="text-gray-500 text-xs">+{product.colors.length - 4}</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
+                    {/* Footer Info */}
                     <div className="pt-2 border-t border-gray-700/50">
                       <div className="flex justify-between items-center text-xs text-gray-500">
                         <span>Создан: {new Date(product.createdAt).toLocaleDateString('ru-RU')}</span>

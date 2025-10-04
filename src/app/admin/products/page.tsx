@@ -153,6 +153,25 @@ export default function ProductsPage() {
   });
   const [formLoading, setFormLoading] = useState(false);
 
+  // Предотвращаем прокрутку заднего фона для модальных окон на мобильных устройствах
+  useEffect(() => {
+    if ((isViewModalOpen || isEditModalOpen || isDeleteModalOpen || isCreateModalOpen) && window.innerWidth < 768) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    };
+  }, [isViewModalOpen, isEditModalOpen, isDeleteModalOpen, isCreateModalOpen]);
+
   // Загрузка товаров
   const fetchProducts = async () => {
     try {
@@ -539,38 +558,70 @@ export default function ProductsPage() {
     }
   };
 
-  // Удаление товара (изменение статуса на DELETED)
+  // Удаление товара из базы данных
   const handleDelete = async () => {
     if (!deletingProduct) return;
 
     setFormLoading(true);
     try {
+      // Сначала пытаемся полностью удалить товар из базы данных
       const response = await fetch(`/api/admin/products/${deletingProduct.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: deletingProduct.name,
-          description: deletingProduct.description,
-          categoryId: deletingProduct.categoryId,
-          price: deletingProduct.price,
-          sellerId: deletingProduct.seller?.id,
-          status: 'DELETED',
-          imageUrl: deletingProduct.imageUrl,
-          attributes: deletingProduct.attributes,
-          sizes: deletingProduct.sizes || [],
-          colors: deletingProduct.colors?.map(color => color.name) || []
-        })
+        method: 'DELETE'
       });
 
       if (response.ok) {
+        // Если удаление прошло успешно, удаляем изображения из S3
+        if (deletingProduct.imageUrl && Array.isArray(deletingProduct.imageUrl)) {
+          for (const imageUrl of deletingProduct.imageUrl) {
+            try {
+              await fetch(`/api/upload?fileUrl=${encodeURIComponent(imageUrl)}`, {
+                method: 'DELETE',
+              });
+            } catch (error) {
+              console.error('Error deleting image:', error);
+            }
+          }
+        }
+        
         await fetchProducts();
         closeModals();
-        showSuccess('Товар удален', 'Товар был помечен как удаленный');
+        showSuccess('Товар удален', 'Товар был полностью удален из базы данных');
       } else {
         const error = await response.json();
-        showError('Ошибка удаления', error.error || 'Ошибка удаления товара');
+        
+        // Если товар нельзя удалить из-за связанных заказов, предлагаем мягкое удаление
+        if (response.status === 400 && error.error?.includes('заказах')) {
+          // Выполняем мягкое удаление (изменение статуса)
+          const softDeleteResponse = await fetch(`/api/admin/products/${deletingProduct.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              name: deletingProduct.name,
+              description: deletingProduct.description,
+              categoryId: deletingProduct.categoryId,
+              price: deletingProduct.price,
+              sellerId: deletingProduct.seller?.id,
+              status: 'DELETED',
+              imageUrl: deletingProduct.imageUrl,
+              attributes: deletingProduct.attributes,
+              sizes: deletingProduct.sizes || [],
+              colors: deletingProduct.colors?.map(color => color.name) || []
+            })
+          });
+
+          if (softDeleteResponse.ok) {
+            await fetchProducts();
+            closeModals();
+            showWarning('Товар деактивирован', 'Товар нельзя удалить полностью, так как он есть в заказах. Товар был помечен как удаленный.');
+          } else {
+            const softError = await softDeleteResponse.json();
+            showError('Ошибка удаления', softError.error || 'Ошибка удаления товара');
+          }
+        } else {
+          showError('Ошибка удаления', error.error || 'Ошибка удаления товара');
+        }
       }
     } catch (error) {
       console.error('Error deleting product:', error);
@@ -1115,13 +1166,8 @@ export default function ProductsPage() {
                     
                     <button
                       onClick={() => openDeleteModal(product)}
-                      disabled={product.status === 'DELETED'}
-                      className={`p-2 rounded-lg transition-colors ${
-                        product.status === 'DELETED'
-                          ? 'text-gray-600 cursor-not-allowed opacity-50'
-                          : 'text-red-400 hover:bg-red-500/20'
-                      }`}
-                      title={product.status === 'DELETED' ? 'Товар уже удален' : 'Удалить'}
+                      className="p-2 rounded-lg transition-colors text-red-400 hover:bg-red-500/20"
+                      title={product.status === 'DELETED' ? 'Удалить окончательно' : 'Удалить'}
                     >
                       <TrashIcon className="h-4 w-4" />
                     </button>
@@ -1432,8 +1478,8 @@ export default function ProductsPage() {
 
         {/* View Product Modal */}
         {isViewModalOpen && viewingProduct && (
-          <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center p-4 z-[9999]">
-            <div className="bg-gray-800/95 backdrop-blur-md rounded-xl w-full max-w-5xl border border-gray-700/50 shadow-2xl mx-4 max-h-[90vh] overflow-hidden">
+          <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-start justify-center p-4 z-[9999] pt-8 pb-8">
+            <div className="bg-gray-800/95 backdrop-blur-md rounded-xl w-full max-w-5xl border border-gray-700/50 shadow-2xl mx-4 max-h-[calc(100vh-4rem)] overflow-hidden my-auto">
               {/* Header */}
               <div className="sticky top-0 bg-gray-800 border-b border-gray-700/50 p-4 z-10">
                 <div className="flex items-center justify-between">
@@ -1448,7 +1494,7 @@ export default function ProductsPage() {
               </div>
 
               {/* Content */}
-              <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+              <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(100vh-8rem)] hide-scrollbar">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
                   {/* Images Section */}
                   <div className="space-y-4 flex flex-col">
@@ -1592,9 +1638,9 @@ export default function ProductsPage() {
                   </div>
 
                   {/* Product Details - Compact */}
-                  <div className="grid grid-rows-3 gap-4 h-full">
+                  <div className="flex flex-col gap-4 h-full min-h-0">
                     {/* Basic Info - Compact */}
-                    <div className="bg-gray-700/30 rounded-xl p-4 flex flex-col">
+                    <div className="bg-gray-700/30 rounded-xl p-4 flex flex-col flex-shrink-0">
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <h3 className="text-lg font-semibold text-white">{viewingProduct.name}</h3>
@@ -1640,7 +1686,7 @@ export default function ProductsPage() {
 
                     {/* Sizes, Colors and Attributes - Compact */}
                     {((viewingProduct.sizes && viewingProduct.sizes.length > 0) || (viewingProduct.colors && viewingProduct.colors.length > 0) || (viewingProduct.attributes && Object.keys(viewingProduct.attributes).length > 0)) ? (
-                      <div className="bg-gray-700/30 rounded-xl p-4 flex flex-col">
+                      <div className="bg-gray-700/30 rounded-xl p-4 flex flex-col flex-grow min-h-0">
                         <h4 className="text-sm font-semibold text-white mb-3">Характеристики</h4>
                         <div className="space-y-3 flex-grow">
                           {viewingProduct.sizes && viewingProduct.sizes.length > 0 && (
@@ -1695,7 +1741,7 @@ export default function ProductsPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="bg-gray-700/30 rounded-xl p-4 flex flex-col">
+                      <div className="bg-gray-700/30 rounded-xl p-4 flex flex-col flex-grow min-h-0">
                         <h4 className="text-sm font-semibold text-white mb-3">Характеристики</h4>
                         <div className="flex-grow flex items-center justify-center">
                           <p className="text-gray-500 text-sm">Характеристики не указаны</p>
@@ -1704,7 +1750,7 @@ export default function ProductsPage() {
                     )}
 
                     {/* Dates - Compact */}
-                    <div className="bg-gray-700/30 rounded-xl p-4 flex flex-col">
+                    <div className="bg-gray-700/30 rounded-xl p-4 flex flex-col flex-shrink-0">
                       <h4 className="text-sm font-semibold text-white mb-2">Информация</h4>
                       <div className="grid grid-cols-2 gap-4 text-xs">
                         <div>
@@ -1715,6 +1761,38 @@ export default function ProductsPage() {
                           <span className="text-gray-400">Обновлен:</span>
                           <p className="text-white">{new Date(viewingProduct.updatedAt).toLocaleDateString('ru-RU')}</p>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="bg-gray-700/30 rounded-xl p-4 flex flex-col flex-shrink-0">
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={() => {
+                            closeModals();
+                            setTimeout(() => openEditModal(viewingProduct), 100);
+                          }}
+                          disabled={viewingProduct.status === 'DELETED'}
+                          className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-xl transition-all duration-200 font-medium ${
+                            viewingProduct.status === 'DELETED'
+                              ? 'bg-gray-600/50 text-gray-400 cursor-not-allowed opacity-50'
+                              : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30'
+                          }`}
+                        >
+                          <PencilIcon className="h-5 w-5" />
+                          <span>Редактировать</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            closeModals();
+                            setTimeout(() => openDeleteModal(viewingProduct), 100);
+                          }}
+                          className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-xl transition-all duration-200 font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                          <span>{viewingProduct.status === 'DELETED' ? 'Удалить окончательно' : 'Удалить'}</span>
+                        </button>
                       </div>
                     </div>
 
